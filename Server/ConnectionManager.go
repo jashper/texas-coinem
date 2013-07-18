@@ -11,6 +11,7 @@ func (this ConnectionManager) Run(network, address string) {
 	listener, err := net.Listen(network, address)
 	if err != nil {
 		fmt.Println("CRITICAL : Failed to start ConnectionManager")
+		return
 	}
 	fmt.Println("Successful start of ConnectionManager")
 
