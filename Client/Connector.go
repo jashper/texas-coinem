@@ -11,8 +11,8 @@ func (this *Connector) Start(network, address string) {
 	conn, err := net.Dial(network, address)
 	this.Connection = conn
 	if err != nil {
-		fmt.Printf("%s", "CRITICAL : Failed to connect to Server \n")
+		fmt.Println("Failed to connect to Server")
 		return
 	}
-	fmt.Printf("%s", "Successfully connected to Server \n")
+	fmt.Println("Successfully connected to Server")
 }
