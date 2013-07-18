@@ -1,13 +1,8 @@
 package Server
 
-import (
-	"fmt"
-)
-
 type HoldEMGame struct {
-	GameInstance
+	GameLogic
 }
 
-func (this *HoldEMGame) UpdateState(playerID int32, command string) {
-	fmt.Println("test")
+func (this HoldEMGame) UpdateState(playerID int32, command string, game *GameInstance) {
 }

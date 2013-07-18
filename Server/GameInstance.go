@@ -4,23 +4,31 @@ import (
 	"sync/atomic"
 )
 
-type GameInstance struct {
-	GameInstanceInterface
+type GameLogic interface {
+	UpdateState(playerID int32, command string, game *GameInstance)
+}
 
+type GameInstance struct {
 	context     *ServerContext
 	connections []*Connection
 	parameters  GameParameters
+	logic       GameLogic
 
 	activePlayer   int32
 	timerID        int
 	isPlayerActive []bool
 }
 
-func (this *GameInstance) Init(context *ServerContext, connections []*Connection, parameters GameParameters) {
+func (this *GameInstance) Init(context *ServerContext, connections []*Connection,
+	parameters GameParameters) {
 
 	this.context = context
 	this.connections = connections
 	this.parameters = parameters
+	switch {
+	case parameters.Variant == HOLDEM:
+		this.logic = HoldEMGame{}
+	}
 
 	this.activePlayer = -1
 	this.timerID = 0
@@ -46,5 +54,5 @@ func (this *GameInstance) TakeTurn(playerID int32, command string,
 		/// TODO: Send local "sitting-out" message
 	}
 
-	this.UpdateState(playerID, command)
+	this.logic.UpdateState(playerID, command, this)
 }
