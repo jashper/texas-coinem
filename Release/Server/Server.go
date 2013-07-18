@@ -1,13 +1,14 @@
 package main
 
 import (
-	//"fmt"
 	"github.com/jashper/texas-coinem/Server"
 	"sync"
 )
 
 func main() {
-	context := Server.ServerContext{}
+	var db Server.Database
+	db.Connect("localhost:28015", "test", 10000)
+	context := Server.ServerContext{&db}
 
 	manager := Server.ConnectionManager{&context}
 	go manager.Run("tcp", ":6666")

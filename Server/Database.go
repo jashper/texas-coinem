@@ -2,23 +2,23 @@ package Server
 
 import (
 	"fmt"
-	db "github.com/christopherhesse/rethinkgo"
+	r "github.com/christopherhesse/rethinkgo"
 )
 
 type DatabaseRequest struct {
-	request db.Exp
-	result  chan *db.Rows
+	request r.Exp
+	result  chan *r.Rows
 }
 
 type Database struct {
-	session *db.Session
+	session *r.Session
 	queue   chan DatabaseRequest
 }
 
 func (this *Database) Connect(address, database string, bufCount int) (err error) {
-	this.session, err = db.Connect(address, database)
+	this.session, err = r.Connect(address, database)
 	if err != nil {
-		fmt.Println("CRITICAL : Failed to connect to " + database)
+		fmt.Println("CRITICAL : Failed to connect to DB " + database)
 		return
 	}
 
@@ -29,11 +29,11 @@ func (this *Database) Connect(address, database string, bufCount int) (err error
 	return
 }
 
-func (this *Database) MakeRequest(request db.Exp) chan *db.Rows {
-	result := make(chan *db.Rows, 1)
+func (this *Database) MakeRequest(request r.Exp) *r.Rows {
+	result := make(chan *r.Rows, 1)
 	dbRequest := DatabaseRequest{request, result}
 	this.queue <- dbRequest
-	return result
+	return <-result
 }
 
 func (this *Database) run() {
