@@ -76,7 +76,7 @@ func (this *GameInstance) Init(context *ServerContext, connections []*Connection
 		this.playerStacks[i] = parameters.ChipCount
 	}
 
-	this.buttonPlayer = 0 // TODO: randomly pick this
+	this.buttonPlayer = this.firstButtonPosition()
 
 	go QueueBlindsTimer(parameters.TurnTime, this)
 }
@@ -283,4 +283,19 @@ func (this *GameInstance) handleInterrupt(interrupt GameInterrupt) {
 		this.blindsId++
 		go QueueBlindsTimer(this.parameters.TurnTime, this)
 	}
+}
+
+func (this *GameInstance) firstButtonPosition() int {
+	deck := <-this.context.Entropy.Decks
+
+	firstPlayer := 0
+	maxCard := deck[0]
+	for i := 1; i < this.parameters.PlayerCount; i++ {
+		if deck[i] > maxCard {
+			firstPlayer = i
+			maxCard = deck[i]
+		}
+	}
+
+	return firstPlayer
 }
