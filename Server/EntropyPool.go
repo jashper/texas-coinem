@@ -9,12 +9,14 @@ type EntropyPool struct {
 	Decks chan [52]int
 }
 
-func (this *EntropyPool) Init(bufCount int) {
+func (this *EntropyPool) Init(bufCount, reseed int) {
 	this.Decks = make(chan [52]int, bufCount)
 	rand.Seed(time.Now().UTC().UnixNano())
+
+	go this.run(reseed)
 }
 
-func (this EntropyPool) Run(reseed int) {
+func (this EntropyPool) run(reseed int) {
 	for count := 1; ; count++ {
 		var testDeck [52]int
 

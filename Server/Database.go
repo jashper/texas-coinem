@@ -15,7 +15,7 @@ type Database struct {
 	queue   chan DatabaseRequest
 }
 
-func (this *Database) Connect(address, database string, bufCount int) (err error) {
+func (this *Database) Init(address, database string, bufCount int) (err error) {
 	this.session, err = r.Connect(address, database)
 	if err != nil {
 		fmt.Println("CRITICAL : Failed to connect to DB " + database)

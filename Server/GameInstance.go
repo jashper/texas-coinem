@@ -14,6 +14,7 @@ type GameInstance struct {
 	context     *ServerContext
 	connections []*Connection
 	parameters  GameParameters
+	interrupts  chan GameInterrupt
 	logic       GameLogic
 
 	activePlayer   int32
@@ -26,6 +27,7 @@ type GameInstance struct {
 	buttonPlayer         int
 
 	handId    int
+	blindsId  int
 	sb        float64
 	bb        float64
 	ante      float64
@@ -45,6 +47,7 @@ func (this *GameInstance) Init(context *ServerContext, connections []*Connection
 	this.context = context
 	this.connections = connections
 	this.parameters = parameters
+	this.interrupts = make(chan GameInterrupt, 25)
 	switch {
 	case parameters.Variant == HOLDEM:
 		this.logic = HoldEMGame{}
@@ -57,6 +60,7 @@ func (this *GameInstance) Init(context *ServerContext, connections []*Connection
 	this.playerQueue = make([]int, 0)
 
 	this.handId = 0
+	this.blindsId = 0
 
 	this.playerPots = make([]float64, parameters.PlayerCount)
 	this.playerStacks = make([]float64, parameters.PlayerCount)
@@ -73,6 +77,8 @@ func (this *GameInstance) Init(context *ServerContext, connections []*Connection
 	}
 
 	this.buttonPlayer = 0 // TODO: randomly pick this
+
+	go QueueBlindsTimer(parameters.TurnTime, this)
 }
 
 func (this *GameInstance) TakeTurn(playerID int32, command string,
@@ -104,7 +110,7 @@ func (this *GameInstance) newTurn(playerID int32) {
 	active := this.isPlayerActive[playerID]
 	if active {
 		this.timerID++
-		go QueueHandTimer(playerID, this.timerID, this.parameters.TurnTime, this)
+		go QueueTurnTimer(playerID, this.timerID, this.parameters.TurnTime, this)
 	}
 
 	if !active {
@@ -144,8 +150,18 @@ func (this *GameInstance) newHand() {
 		// TODO: Signal end game
 	}
 
-	// TODO: Handle Queue Overhead Interrupts
-	// TODO: Initialize sb, bb, & ante and set blind timer
+	for {
+		select {
+		case interrupt := <-this.interrupts:
+			this.handleInterrupt(interrupt)
+		default:
+			break
+		}
+	}
+
+	this.sb = this.parameters.Blinds.GetSB(this.blindsId)
+	this.bb = this.sb * 2
+	this.ante = this.parameters.Blinds.GetAnte(this.blindsId)
 
 	if this.buttonPlayer < this.parameters.PlayerCount-1 {
 		this.buttonPlayer++
@@ -227,8 +243,6 @@ func (this *GameInstance) updateLegalActions(playerID int) {
 	minLimit := this.getMinLimit(playerID)
 	maxLimit := this.getMaxLimit(playerID)
 
-	chips := this.getAvailableChips(playerID)
-
 	if this.amtToCall == 0 {
 		la = append(la, "CHECK")
 		la = append(la, "BET"+fmt.Sprint(this.bb)+":"+fmt.Sprint(maxLimit))
@@ -262,4 +276,11 @@ func (this *GameInstance) getMaxLimit(playerID int) float64 {
 	}
 
 	return -1
+}
+
+func (this *GameInstance) handleInterrupt(interrupt GameInterrupt) {
+	if interrupt.iType == I_GAME_NEW_BLINDS {
+		this.blindsId++
+		go QueueBlindsTimer(this.parameters.TurnTime, this)
+	}
 }

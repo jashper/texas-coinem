@@ -1,5 +1,6 @@
 package Server
 
 type ServerContext struct {
-	DB *Database
+	DB      *Database
+	Entropy *EntropyPool
 }
