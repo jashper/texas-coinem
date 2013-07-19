@@ -97,26 +97,26 @@ func (this *GameInstance) TakeTurn(playerID int32, command string,
 func (this *GameInstance) newTurn(playerID int32) {
 	this.updateLegalActions(int(playerID))
 
+	this.activePlayer = playerID
+
+	/// TODO: Send local "new-turn" message
+
 	active := this.isPlayerActive[playerID]
 	if active {
 		this.timerID++
 		go QueueHandTimer(playerID, this.timerID, this.parameters.TurnTime, this)
 	}
 
-	this.activePlayer = playerID
-
-	/// TODO: Send local "new-turn" message
-
 	if !active {
-		checkPresent := false
+		check := false
 		for l := 0; l < len(this.legalActions); l++ {
 			if this.legalActions[l] == "CHECK" {
-				checkPresent = true
+				check = true
 				break
 			}
 		}
 
-		if checkPresent {
+		if check {
 			this.TakeTurn(playerID, "CHECK", false, 0)
 		} else {
 			this.TakeTurn(playerID, "FOLD", false, 0)
@@ -207,7 +207,7 @@ func (this *GameInstance) newHand() {
 }
 
 func (this *GameInstance) getNextPlayer() int {
-	if this.playerQueueActiveIdx == len(this.playerQueue) {
+	if this.playerQueueActiveIdx == len(this.playerQueue)-1 {
 		this.playerQueueActiveIdx = 0
 	} else {
 		this.playerQueueActiveIdx++
@@ -232,16 +232,13 @@ func (this *GameInstance) updateLegalActions(playerID int) {
 	if this.amtToCall == 0 {
 		la = append(la, "CHECK")
 		la = append(la, "BET"+fmt.Sprint(this.bb)+":"+fmt.Sprint(maxLimit))
-	} else if this.amtToCall >= chips {
-		la = append(la, "ALLIN")
-		la = append(la, "FOLD")
 	} else {
 		la = append(la, "CALL")
 		la = append(la, "FOLD")
 		if minLimit == 0 {
 			la = append(la, "ALLIN")
 		} else {
-			la = append(la, "BET"+fmt.Sprint(minLimit)+":"+fmt.Sprint(maxLimit))
+			la = append(la, "RAISE"+fmt.Sprint(minLimit)+":"+fmt.Sprint(maxLimit))
 		}
 	}
 
