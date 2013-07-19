@@ -22,7 +22,7 @@ type GameParameters struct {
 	Variant     GameVariant
 	Limit       GameLimit
 	Blinds      Blinds
-	ChipCount   int
+	ChipCount   float64
 	PlayerCount int
 	LevelTime   int
 	TurnTime    time.Duration
@@ -30,7 +30,7 @@ type GameParameters struct {
 }
 
 func (this *GameParameters) Init(variant GameVariant, limit GameLimit, blinds Blinds,
-	chipCount, playerCount, levelTime int, turnTime, extraTime time.Duration) {
+	chipCount float64, playerCount, levelTime int, turnTime, extraTime time.Duration) {
 
 	this.Variant = variant
 	this.Limit = limit
