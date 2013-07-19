@@ -79,6 +79,7 @@ func (this *GameInstance) Init(context *ServerContext, connections []*Connection
 	this.buttonPlayer = this.firstButtonPosition()
 
 	go QueueBlindsTimer(parameters.TurnTime, this)
+	this.newHand()
 }
 
 func (this *GameInstance) TakeTurn(playerID int32, command string,
