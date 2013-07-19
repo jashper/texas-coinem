@@ -1,5 +1,9 @@
 package Server
 
+import (
+	"time"
+)
+
 type GameVariant int
 
 const (
@@ -21,12 +25,12 @@ type GameParameters struct {
 	ChipCount   int
 	PlayerCount int
 	LevelTime   int
-	TurnTime    int
-	ExtraTime   int
+	TurnTime    time.Duration
+	ExtraTime   time.Duration
 }
 
 func (this *GameParameters) Init(variant GameVariant, limit GameLimit, blinds Blinds,
-	chipCount, playerCount, levelTime, turnTime, extraTime int) {
+	chipCount, playerCount, levelTime int, turnTime, extraTime time.Duration) {
 
 	this.Variant = variant
 	this.Limit = limit

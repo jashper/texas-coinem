@@ -25,8 +25,7 @@ func (this EntropyPool) Run(reseed int) {
 		for i := 0; i < 51; i++ {
 			toPop := rand.Intn(52 - i)
 			testDeck[i] = cards[toPop]
-			cards = cards[:toPop+
-				copy(cards[toPop:], cards[toPop+1:])]
+			cards = append(cards[:toPop], cards[toPop+1:]...)
 		}
 		testDeck[51] = cards[0]
 
