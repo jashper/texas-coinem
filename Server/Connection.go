@@ -7,7 +7,12 @@ type Connection struct {
 	socket net.Conn
 }
 
-func (this *Connection) Handle() {
+func (this *Connection) Init(socket net.Conn) {
+	this.socket = socket
+	go this.run()
+}
+
+func (this *Connection) run() {
 	defer this.socket.Close()
 	fmt.Println("New user connected")
 

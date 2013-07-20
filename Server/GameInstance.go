@@ -25,6 +25,10 @@ type GameInstance struct {
 	playerQueueActiveIdx int
 	actionPlayer         int // most recent player to initiate action
 	buttonPlayer         int
+	isPlayerAllIn        []bool
+
+	deck    [52]int
+	deckIdx int
 
 	handId    int
 	blindsId  int
@@ -58,8 +62,9 @@ func (this *GameInstance) Init(context *ServerContext, connections []*Connection
 	this.isPlayerActive = make([]bool, parameters.PlayerCount)
 
 	this.playerQueue = make([]int, 0)
+	this.isPlayerAllIn = make([]bool, parameters.PlayerCount)
 
-	this.handId = 0
+	this.handId = -1
 	this.blindsId = 0
 
 	this.playerPots = make([]float64, parameters.PlayerCount)
@@ -132,8 +137,17 @@ func (this *GameInstance) newTurn(playerID int32) {
 }
 
 func (this *GameInstance) newHand() {
-	// TODO: double check we clear/reset appropriate items
+	for {
+		select {
+		case interrupt := <-this.interrupts:
+			this.handleInterrupt(interrupt)
+		default:
+			break
+		}
+	}
 
+	this.deck = <-this.context.Entropy.Decks
+	this.deckIdx = 0
 	this.handId++
 	this.boardCards = this.boardCards[0:0]
 
@@ -141,6 +155,7 @@ func (this *GameInstance) newHand() {
 	for p := 0; p < this.parameters.PlayerCount; p++ {
 		this.playerCards[p] = this.playerCards[p][0:0]
 		this.playerPots[p] = 0
+		this.isPlayerAllIn[p] = false
 
 		if this.playerStacks[p] > 0 {
 			this.playerQueue = append(this.playerQueue, p)
@@ -149,15 +164,6 @@ func (this *GameInstance) newHand() {
 
 	if len(this.playerQueue) == 1 {
 		// TODO: Signal end game
-	}
-
-	for {
-		select {
-		case interrupt := <-this.interrupts:
-			this.handleInterrupt(interrupt)
-		default:
-			break
-		}
 	}
 
 	this.sb = this.parameters.Blinds.GetSB(this.blindsId)
@@ -191,6 +197,7 @@ func (this *GameInstance) newHand() {
 	sbChips := this.getAvailableChips(sbPlayer)
 	if this.sb > sbChips {
 		this.playerPots[sbPlayer] += sbChips
+		this.setAllIn(sbPlayer)
 	} else {
 		this.playerPots[sbPlayer] += this.sb
 	}
@@ -199,6 +206,7 @@ func (this *GameInstance) newHand() {
 	bbChips := this.getAvailableChips(bbPlayer)
 	if this.bb > bbChips {
 		this.playerPots[bbPlayer] += bbChips
+		this.setAllIn(bbPlayer)
 	} else {
 		this.playerPots[bbPlayer] += this.bb
 	}
@@ -208,6 +216,7 @@ func (this *GameInstance) newHand() {
 			chipsAvailable := this.getAvailableChips(p)
 			if this.ante > chipsAvailable {
 				this.playerPots[p] += chipsAvailable
+				this.setAllIn(p)
 			} else {
 				this.playerPots[p] += this.ante
 			}
@@ -244,24 +253,37 @@ func (this *GameInstance) updateLegalActions(playerID int) {
 	minLimit := this.getMinLimit(playerID)
 	maxLimit := this.getMaxLimit(playerID)
 
-	if this.amtToCall == 0 {
+	unPaid := this.amtToCall - this.playerPots[playerID]
+	chips := this.getAvailableChips(playerID)
+
+	if unPaid == 0 {
 		la = append(la, "CHECK")
-		la = append(la, "BET"+fmt.Sprint(this.bb)+":"+fmt.Sprint(maxLimit))
+		if chips >= this.bb {
+			la = append(la, "BET"+fmt.Sprint(this.bb)+":"+fmt.Sprint(maxLimit))
+		} else {
+			la = append(la, "ALLIN")
+		}
 	} else {
-		la = append(la, "CALL")
 		la = append(la, "FOLD")
-		if minLimit == 0 {
+		if unPaid >= chips {
 			la = append(la, "ALLIN")
 		} else {
-			la = append(la, "RAISE"+fmt.Sprint(minLimit)+":"+fmt.Sprint(maxLimit))
+			la = append(la, "CALL")
+			if minLimit == 0 {
+				la = append(la, "ALLIN")
+			} else {
+				la = append(la, "RAISE"+fmt.Sprint(minLimit)+":"+fmt.Sprint(maxLimit))
+			}
 		}
 	}
 
 }
 
 func (this *GameInstance) getMinLimit(playerID int) float64 {
+	unPaid := this.amtToCall - this.playerPots[playerID]
+
 	if this.parameters.Limit == NO_LIMIT {
-		if this.prevBet >= this.getAvailableChips(playerID) {
+		if this.prevBet > (this.getAvailableChips(playerID) - unPaid) {
 			return 0
 		} else {
 			return this.prevBet
@@ -272,8 +294,10 @@ func (this *GameInstance) getMinLimit(playerID int) float64 {
 }
 
 func (this *GameInstance) getMaxLimit(playerID int) float64 {
+	unPaid := this.amtToCall - this.playerPots[playerID]
+
 	if this.parameters.Limit == NO_LIMIT {
-		return this.getAvailableChips(playerID)
+		return (this.getAvailableChips(playerID) - unPaid)
 	}
 
 	return -1
@@ -298,5 +322,31 @@ func (this *GameInstance) firstButtonPosition() int {
 		}
 	}
 
+	// accounting for newHand button increment
+	firstPlayer--
+	if firstPlayer == -1 {
+		firstPlayer = this.parameters.PlayerCount - 1
+	}
+
 	return firstPlayer
+}
+
+func (this *GameInstance) setAllIn(playerID int) {
+	this.isPlayerAllIn[playerID] = true
+	this.removeFromQueue(playerID)
+}
+
+func (this *GameInstance) removeFromQueue(playerID int) {
+	pq := this.playerQueue
+	for p := 0; p < len(pq); p++ {
+		if pq[p] == playerID {
+			pq = append(pq[:p], pq[p+1:]...)
+		}
+	}
+}
+
+func (this *GameInstance) getNewCard() int {
+	card := this.deck[this.deckIdx]
+	this.deckIdx++
+	return card
 }

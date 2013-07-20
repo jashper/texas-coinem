@@ -21,7 +21,7 @@ func (this ConnectionManager) Run(network, address string) {
 			fmt.Println("CRITICAL : User failed to connect")
 			continue
 		}
-		connection := Connection{socket}
-		go connection.Handle()
+		var c Connection
+		c.Init(socket)
 	}
 }
