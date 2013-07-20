@@ -4,7 +4,7 @@ type HoldEMGame struct {
 	GameLogic
 }
 
-func (this HoldEMGame) UpdateState(playerID int32, command string, game *GameInstance) {
+func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInstance) {
 	action, value := game.parseRequestedAction(command)
 
 	unPaid := game.amtToCall - game.playerPots[playerID]
@@ -43,6 +43,45 @@ func (this HoldEMGame) UpdateState(playerID int32, command string, game *GameIns
 		game.playerPots[playerID] += chips
 		game.setAllIn(playerID)
 	}
+
+	nextPlayer := game.getNextPlayer()
+
+	endOfStreet := false
+	if game.actionPlayer == nextPlayer {
+		endOfStreet = true
+	}
+	if game.actionPlayer == -1 && game.playerPots[playerID] == game.bb {
+		endOfStreet = true
+	}
+
+	//TODO: send out summary of updates (ie:
+	//   end of turn, new street, end of hand)
+
+	if !endOfStreet {
+		game.newTurn(int32(nextPlayer))
+	} else {
+		if len(game.playerQueue) == 1 || len(game.boardCards) == 5 {
+			game.endTurn()
+		} else {
+			for i := 0; i < len(game.playerQueue); i++ {
+				if game.playerQueue[i] == game.buttonPlayer {
+					game.playerQueueActiveIdx = i
+					break
+				}
+			}
+			game.actionPlayer = game.getNextPlayer()
+			game.prevBet = 0
+
+			game.boardCards = append(game.boardCards, game.getNewCard())
+			if len(game.boardCards) == 1 {
+				game.boardCards = append(game.boardCards,
+					game.getNewCard(), game.getNewCard())
+			}
+
+			game.newTurn(int32(game.actionPlayer))
+		}
+	}
+
 }
 
 func (this HoldEMGame) DealCards(game *GameInstance) {

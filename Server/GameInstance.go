@@ -7,7 +7,7 @@ import (
 )
 
 type GameLogic interface {
-	UpdateState(playerID int32, command string, game *GameInstance)
+	UpdateState(playerID int, command string, game *GameInstance)
 	DealCards(game *GameInstance)
 }
 
@@ -104,7 +104,7 @@ func (this *GameInstance) TakeTurn(playerID int32, command string,
 		/// TODO: Send local "sitting-out" message
 	}
 
-	this.logic.UpdateState(playerID, command, this)
+	this.logic.UpdateState(int(playerID), command, this)
 }
 
 func (this *GameInstance) newTurn(playerID int32) {
@@ -219,13 +219,13 @@ func (this *GameInstance) newHand() {
 		}
 	}
 
-	this.actionPlayer = this.getNextPlayer()
+	this.actionPlayer = -1
 	this.amtToCall = this.bb
 	this.prevBet = this.amtToCall
 
 	this.logic.DealCards(this)
 
-	this.newTurn(int32(this.actionPlayer))
+	this.newTurn(int32(this.getNextPlayer()))
 }
 
 func (this *GameInstance) getNextPlayer() int {
@@ -394,4 +394,8 @@ func (this *GameInstance) getNewCard() int {
 	card := this.deck[this.deckIdx]
 	this.deckIdx++
 	return card
+}
+
+func (this *GameInstance) endTurn() {
+
 }
