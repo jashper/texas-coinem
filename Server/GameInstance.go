@@ -184,9 +184,9 @@ func (this *GameInstance) newHand() {
 		}
 	}
 
-	for p := 0; p < len(this.playerQueue); p++ {
-		if this.playerQueue[p] == this.buttonPlayer {
-			this.playerQueueActiveIdx = p
+	for i := 0; i < len(this.playerQueue); i++ {
+		if this.playerQueue[i] == this.buttonPlayer {
+			this.playerQueueActiveIdx = i
 			break
 		}
 	}
@@ -212,7 +212,8 @@ func (this *GameInstance) newHand() {
 	}
 
 	if this.ante > 0 {
-		for p := 0; p < len(this.playerQueue); p++ {
+		for i := 0; i < len(this.playerQueue); i++ {
+			p := this.playerQueue[i]
 			chipsAvailable := this.getAvailableChips(p)
 			if this.ante > chipsAvailable {
 				this.playerPots[p] += chipsAvailable
@@ -338,9 +339,9 @@ func (this *GameInstance) setAllIn(playerID int) {
 
 func (this *GameInstance) removeFromQueue(playerID int) {
 	pq := this.playerQueue
-	for p := 0; p < len(pq); p++ {
-		if pq[p] == playerID {
-			pq = append(pq[:p], pq[p+1:]...)
+	for i := 0; i < len(pq); i++ {
+		if pq[i] == playerID {
+			pq = append(pq[:i], pq[i+1:]...)
 		}
 	}
 }
