@@ -387,6 +387,7 @@ func (this *GameInstance) removeFromQueue(playerID int) {
 			pq = append(pq[:i], pq[i+1:]...)
 		}
 	}
+	this.playerQueueActiveIdx--
 }
 
 func (this *GameInstance) getNewCard() int {
