@@ -1,7 +1,8 @@
 package Server
 
 import (
-	"fmt"
+	"strconv"
+	"strings"
 	"sync/atomic"
 )
 
@@ -40,7 +41,7 @@ type GameInstance struct {
 
 	playerPots   []float64
 	playerStacks []float64
-	legalActions []string
+	legalActions LegalActions
 	playerCards  [][]int
 	boardCards   []int
 }
@@ -69,7 +70,7 @@ func (this *GameInstance) Init(context *ServerContext, connections []*Connection
 
 	this.playerPots = make([]float64, parameters.PlayerCount)
 	this.playerStacks = make([]float64, parameters.PlayerCount)
-	this.legalActions = make([]string, 0)
+	this.legalActions = LegalActions{}
 	this.playerCards = make([][]int, parameters.PlayerCount)
 	for p := 0; p < parameters.PlayerCount; p++ {
 		this.playerCards[p] = make([]int, 0)
@@ -120,13 +121,7 @@ func (this *GameInstance) newTurn(playerID int32) {
 	}
 
 	if !active {
-		check := false
-		for l := 0; l < len(this.legalActions); l++ {
-			if this.legalActions[l] == "CHECK" {
-				check = true
-				break
-			}
-		}
+		check := this.legalActions.check
 
 		if check {
 			this.TakeTurn(playerID, "CHECK", false, 0)
@@ -248,8 +243,8 @@ func (this *GameInstance) getAvailableChips(playerID int) float64 {
 }
 
 func (this *GameInstance) updateLegalActions(playerID int) {
+	this.legalActions = LegalActions{}
 	la := this.legalActions
-	la = la[0:0]
 
 	minLimit := this.getMinLimit(playerID)
 	maxLimit := this.getMaxLimit(playerID)
@@ -258,26 +253,74 @@ func (this *GameInstance) updateLegalActions(playerID int) {
 	chips := this.getAvailableChips(playerID)
 
 	if unPaid == 0 {
-		la = append(la, "CHECK")
+		la.check = true
 		if chips >= this.bb {
-			la = append(la, "BET"+fmt.Sprint(this.bb)+":"+fmt.Sprint(maxLimit))
+			la.bet = true
+			la.min = this.bb
+			la.max = maxLimit
 		} else {
-			la = append(la, "ALLIN")
+			la.allin = true
 		}
 	} else {
-		la = append(la, "FOLD")
+		la.fold = true
 		if unPaid >= chips {
-			la = append(la, "ALLIN")
+			la.allin = true
 		} else {
-			la = append(la, "CALL")
+			la.call = true
 			if minLimit == 0 {
-				la = append(la, "ALLIN")
+				la.allin = true
 			} else {
-				la = append(la, "RAISE"+fmt.Sprint(minLimit)+":"+fmt.Sprint(maxLimit))
+				la.raise = true
+				la.min = minLimit
+				la.max = maxLimit
 			}
 		}
 	}
 
+}
+
+func (this *GameInstance) parseRequestedAction(command string) (action GameAction, value float64) {
+	la := this.legalActions
+
+	isCheckDefault := la.check
+
+	split := strings.Split(command, ":")
+
+	if split[0] == "CALL" && la.call {
+		action = CALL
+		return
+	} else if split[0] == "BET" && la.bet {
+		if len(split) == 2 {
+			tempValue, _ := strconv.ParseFloat(split[1], 64)
+
+			if la.min <= tempValue && tempValue <= la.max {
+				action = BET
+				value = tempValue
+				return
+			}
+		}
+	} else if split[0] == "RAISE" && la.raise {
+		if len(split) == 2 {
+			tempValue, _ := strconv.ParseFloat(split[1], 64)
+
+			if la.min <= tempValue && tempValue <= la.max {
+				action = RAISE
+				value = tempValue
+				return
+			}
+		}
+	} else if split[0] == "ALLIN" && la.allin {
+		action = ALLIN
+		return
+	}
+
+	if isCheckDefault {
+		action = CHECK
+	} else {
+		action = FOLD
+	}
+
+	return
 }
 
 func (this *GameInstance) getMinLimit(playerID int) float64 {
