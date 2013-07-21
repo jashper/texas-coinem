@@ -12,7 +12,10 @@ func main() {
 	var entropy Server.EntropyPool
 	entropy.Init(10000, 1000)
 
-	context := Server.ServerContext{&db, &entropy}
+	var handEval Server.HandEvaluator
+	handEval.Init("/Users/jashper/go/bin/resources/texas-coinem/HandRanks.dat")
+
+	context := Server.ServerContext{&db, &entropy, &handEval}
 
 	manager := Server.ConnectionManager{&context}
 	go manager.Run("tcp", ":6666")

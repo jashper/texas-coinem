@@ -1,6 +1,7 @@
 package Server
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -396,6 +397,153 @@ func (this *GameInstance) getNewCard() int {
 	return card
 }
 
-func (this *GameInstance) endTurn() {
+func (this *GameInstance) endHand() {
+	//TODO: Send out summary of winners/losers
+	inThePot := this.playerQueue
+	for i := 0; i < len(this.isPlayerAllIn); i++ {
+		if this.isPlayerAllIn[i] {
+			inThePot = append(inThePot, i)
+		}
+	}
 
+	inQueue := make([]bool, len(this.parameters.PlayerCount))
+	for i := 0; i < len(inThePot); i++ {
+		inQueue[inThePot[i]] = true
+	}
+	foldedPot := make([]int, 0)
+	for i := 0; i < len(this.parameters.PlayerCount); i++ {
+		if this.playerPots[i] != 0 {
+			foldedPot = append(foldedPot, i)
+		}
+	}
+	inThePot = append(inThePot, foldedPot...)
+
+	pots := make([]float64, len(inThePot))
+	strengths := make([]int, len(inThePot))
+	for i := 0; i < len(inThePot)-len(foldedPot); i++ {
+		p := inThePot[i]
+
+		pot := this.playerPots[p]
+		pots[i] = pot
+
+		var cards [7]uint
+		for j := 0; j < 5; j++ {
+			cards[j] = uint(this.boardCards[j])
+		}
+		for j := 5; j < 7; j++ {
+			cards[j] = uint(this.playerCards[p][j-5])
+		}
+
+		strength, _ := this.context.HandEval.HandInfo(cards)
+		strengths[i] = int(strength)
+	}
+
+	unsortedStrengths := make([]int, len(strengths))
+	copy(unsortedStrengths, strengths)
+	sort.Ints(strengths) // increasing order
+	type payoutList struct {
+		players []int
+		next    *payoutList
+	}
+	toPay := payoutList{make([]int, 0), nil}
+	tempPtr := &toPay
+	for i := len(strengths) - 1; i >= 0; i-- {
+		strength := strengths[i]
+		count := 1
+		if i-1 >= 0 {
+			for strength == strengths[i-1] {
+				count++
+			}
+			i -= count - 1
+		}
+
+		for j := 0; j < len(inThePot); j++ {
+			if count == 0 {
+				break
+			}
+			if unsortedStrengths[j] == strength {
+				tempPtr.players = append(tempPtr.players, j)
+				count--
+			}
+		}
+
+		if i-1 >= 0 {
+			tempPtr.next = &payoutList{make([]int, 0), nil}
+			tempPtr = tempPtr.next
+		}
+	}
+
+	for a := 0; a < len(inThePot); a++ {
+		p := inThePot[a]
+		pot := this.playerPots[p]
+		tempPtr = &toPay
+
+		changeToStack := float64(0)
+		for pot != 0 {
+			playersToPay := tempPtr.players
+
+			donePaying := false
+			for b := 0; b < len(playersToPay); b++ {
+				if playersToPay[b] == a {
+					donePaying = true
+					break
+				}
+			}
+			if donePaying {
+				break
+			}
+
+			sortedPots := make([]float64, len(playersToPay))
+			for b := 0; b < len(playersToPay); b++ {
+				sortedPots[b] = pots[playersToPay[b]]
+			}
+			sort.Float64s(sortedPots)
+
+			idxOrder := make([]int, len(playersToPay))
+			hasBeenSeen := make([]bool, len(playersToPay))
+			for i := 0; i < len(sortedPots); i++ {
+				for j := 0; j < len(playersToPay); j++ {
+					if pots[playersToPay[j]] == sortedPots[i] && !hasBeenSeen[j] {
+						idxOrder[i] = j
+						break
+					}
+				}
+			}
+
+			toPay := make([]float64, len(playersToPay))
+			for b := 0; b < len(sortedPots); b++ {
+				toPayIdx := idxOrder[b]
+
+				greaterThan := float64(0)
+				for i := b + 1; i < len(sortedPots); i++ {
+					if sortedPots[i] > sortedPots[b] {
+						greaterThan = float64(i)
+						break
+					}
+				}
+				greaterThan = float64(len(sortedPots)) - greaterThan
+
+				if b != 0 {
+					toPay[toPayIdx] = toPay[idxOrder[b-1]]
+					if sortedPots[b] == sortedPots[b-1] {
+						continue
+					}
+					toPay[toPayIdx] += (sortedPots[b] - sortedPots[b-1]) / greaterThan
+				} else {
+					toPay[toPayIdx] = sortedPots[0] / greaterThan
+				}
+			}
+
+			for b := 0; b < len(toPay); b++ {
+				this.playerStacks[inThePot[playersToPay[b]]] += toPay[b]
+				changeToStack -= toPay[b]
+			}
+
+			tempPtr = tempPtr.next
+		}
+
+		this.playerStacks[p] += changeToStack
+	}
+
+	this.newHand()
 }

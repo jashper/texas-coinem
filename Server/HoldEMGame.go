@@ -7,6 +7,13 @@ type HoldEMGame struct {
 func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInstance) {
 	action, value := game.parseRequestedAction(command)
 
+	nextPlayer := game.getNextPlayer()
+
+	endOfStreet := false
+	if game.actionPlayer == -1 && game.playerPots[playerID] == game.bb {
+		endOfStreet = true
+	}
+
 	unPaid := game.amtToCall - game.playerPots[playerID]
 	if action == FOLD {
 		game.removeFromQueue(playerID)
@@ -14,16 +21,7 @@ func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInsta
 		// do nothing
 	} else if action == CALL {
 		game.playerPots[playerID] += unPaid
-	} else if action == BET {
-		game.actionPlayer = playerID
-		game.amtToCall += value
-		game.prevBet = value
-		game.playerPots[playerID] += unPaid + value
-
-		if game.getAvailableChips(playerID) == 0 {
-			game.setAllIn(playerID)
-		}
-	} else if action == RAISE {
+	} else if action == BET || action == RAISE {
 		game.actionPlayer = playerID
 		game.amtToCall += value
 		game.prevBet = value
@@ -44,13 +42,7 @@ func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInsta
 		game.setAllIn(playerID)
 	}
 
-	nextPlayer := game.getNextPlayer()
-
-	endOfStreet := false
 	if game.actionPlayer == nextPlayer {
-		endOfStreet = true
-	}
-	if game.actionPlayer == -1 && game.playerPots[playerID] == game.bb {
 		endOfStreet = true
 	}
 
@@ -61,7 +53,7 @@ func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInsta
 		game.newTurn(int32(nextPlayer))
 	} else {
 		if len(game.playerQueue) == 1 || len(game.boardCards) == 5 {
-			game.endTurn()
+			game.endHand()
 		} else {
 			for i := 0; i < len(game.playerQueue); i++ {
 				if game.playerQueue[i] == game.buttonPlayer {
