@@ -7,8 +7,6 @@ type HoldEMGame struct {
 func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInstance) {
 	action, value := game.parseRequestedAction(command)
 
-	nextPlayer := game.getNextPlayer()
-
 	endOfStreet := false
 	if game.actionPlayer == -1 && game.playerPots[playerID] == game.bb {
 		endOfStreet = true
@@ -41,6 +39,8 @@ func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInsta
 		game.playerPots[playerID] += chips
 		game.setAllIn(playerID)
 	}
+
+	nextPlayer := game.getNextPlayer()
 
 	if game.actionPlayer == nextPlayer {
 		endOfStreet = true
