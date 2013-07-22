@@ -2,9 +2,11 @@ package Server
 
 import "net"
 import "fmt"
+import "strings"
 
 type Connection struct {
-	socket net.Conn
+	socket   net.Conn
+	userName string
 }
 
 func (this *Connection) Init(socket net.Conn) {
@@ -17,13 +19,22 @@ func (this *Connection) run() {
 	fmt.Println("New user connected")
 
 	for {
-		b := make([]byte, 100) // TODO: Buffer size?
-		_, err := this.socket.Read(b)
+		bytes := make([]byte, 100) // TODO: Buffer size?
+		length, err := this.socket.Read(bytes)
 		if err != nil {
 			fmt.Println("User disconnected")
 			return
 		}
+
+		message := string(bytes[:length])
+		if strings.Contains(message, "username") {
+			split := strings.Split(message, ":")
+			this.userName = split[1]
+		}
 	}
 }
 
-//TODO: add write function
+func (this *Connection) Write(message string) error {
+	_, err := this.socket.Write([]byte(message))
+	return err
+}

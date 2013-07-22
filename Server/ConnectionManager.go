@@ -23,5 +23,6 @@ func (this ConnectionManager) Run(network, address string) {
 		}
 		var c Connection
 		c.Init(socket)
+		this.Context.Connections = append(this.Context.Connections, &c)
 	}
 }

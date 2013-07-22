@@ -15,4 +15,26 @@ func (this *Connector) Start(network, address string) {
 		return
 	}
 	fmt.Println("Successfully connected to Server")
+
+	go this.read()
+
+	for {
+		var input string
+		fmt.Scanf("%v", &input)
+		this.Connection.Write([]byte(input))
+	}
+}
+
+func (this *Connector) read() {
+	for {
+		bytes := make([]byte, 100)
+		length, err := this.Connection.Read(bytes)
+		if err != nil {
+			fmt.Println("Server offline - disconnect")
+			return
+		}
+
+		message := string(bytes[:length])
+		fmt.Print(message)
+	}
 }

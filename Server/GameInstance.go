@@ -232,6 +232,11 @@ func (this *GameInstance) newHand() {
 
 	this.logic.DealCards(this)
 
+	this.broadcastMessage("Start hand #" +
+		strconv.FormatInt(int64(this.handId), 10))
+	this.broadcastMessage("Button: " + this.getUsername(this.buttonPlayer) + " | " +
+		"SB: " + this.getUsername(sbPlayer) + " | " + "BB: " + this.getUsername(bbPlayer))
+
 	this.newTurn(int32(this.getNextPlayer()))
 }
 
@@ -405,6 +410,20 @@ func (this *GameInstance) getNewCard() int {
 	return card
 }
 
+func (this *GameInstance) getUsername(playerID int) string {
+	return this.connections[playerID].userName
+}
+
+func (this *GameInstance) broadcastMessage(message string) {
+	for i := 0; i < len(this.connections); i++ {
+		c := this.connections[i]
+		err := c.Write(c.userName + "-> " + message + "\n")
+		if err != nil {
+			this.isPlayerActive[i] = false
+		}
+	}
+}
+
 func (this *GameInstance) endHand() {
 	//TODO: Send out summary of winners/losers
 
@@ -528,7 +547,7 @@ func (this *GameInstance) endHand() {
 			for b := 0; b < len(sortedPots); b++ {
 				toPayIdx := idxOrder[b]
 
-				greaterThan := float64(len(sortedPots)) - b
+				greaterThan := float64(len(sortedPots) - b)
 
 				if b != 0 {
 					toPay[toPayIdx] = toPay[idxOrder[b-1]]
