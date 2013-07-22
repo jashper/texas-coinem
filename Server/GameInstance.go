@@ -121,7 +121,29 @@ func (this *GameInstance) newTurn(playerID int32) {
 
 	this.activePlayer = playerID
 
-	/// TODO: Send local "new-turn" message
+	this.broadcastMessage("Start of turn for " + this.getUsername(int(playerID)))
+
+	la := this.legalActions
+	laString := ""
+	if la.fold {
+		laString += " | " + "FOLD"
+	}
+	if la.check {
+		laString += " | " + "CHECK"
+	}
+	if la.call {
+		laString += " | " + "CALL"
+	}
+	if la.bet {
+		laString += " | " + "BET:" + fmt.Sprint(la.min) + ":" + fmt.Sprint(la.max)
+	}
+	if la.raise {
+		laString += " | " + "RAISE:" + fmt.Sprint(la.min) + ":" + fmt.Sprint(la.max)
+	}
+	if la.allin {
+		laString += " | " + "ALLIN"
+	}
+	this.connections[playerID].Write("Legal actions: " + laString[3:])
 
 	active := this.isPlayerActive[playerID]
 	if active {
@@ -230,13 +252,28 @@ func (this *GameInstance) newHand() {
 	this.amtToCall = this.bb
 	this.prevBet = this.amtToCall
 
-	this.logic.DealCards(this)
-
-	this.broadcastMessage("Start hand #" +
+	this.broadcastMessage("\nStart hand #" +
 		strconv.FormatInt(int64(this.handId), 10))
 	this.broadcastMessage("Button: " + this.getUsername(this.buttonPlayer) + " | " +
 		"SB: " + this.getUsername(sbPlayer) + " | " + "BB: " + this.getUsername(bbPlayer))
 
+	stackMesg := "Stacks| " + this.getUsername(0) + ": " +
+		strconv.FormatInt(int64(this.playerStacks[0]), 10)
+	for i := 1; i < len(this.playerStacks); i++ {
+		stackMesg += ", " + this.getUsername(i) + ": " +
+			strconv.FormatInt(int64(this.playerStacks[i]), 10)
+	}
+	this.broadcastMessage(stackMesg)
+
+	potMesg := "Pots| " + this.getUsername(0) + ": " +
+		strconv.FormatInt(int64(this.playerPots[0]), 10)
+	for i := 1; i < len(this.playerPots); i++ {
+		potMesg += ", " + this.getUsername(i) + ": " +
+			strconv.FormatInt(int64(this.playerPots[i]), 10)
+	}
+	this.broadcastMessage(potMesg)
+
+	this.logic.DealCards(this)
 	this.newTurn(int32(this.getNextPlayer()))
 }
 
@@ -288,8 +325,6 @@ func (this *GameInstance) updateLegalActions(playerID int) {
 			}
 		}
 	}
-
-	fmt.Println(this.legalActions)
 
 }
 

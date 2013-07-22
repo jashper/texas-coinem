@@ -81,6 +81,10 @@ func (this HoldEMGame) DealCards(game *GameInstance) {
 		p := game.playerQueue[i]
 		game.playerCards[p] = append(game.playerCards[p],
 			game.getNewCard(), game.getNewCard())
+
+		message := "Hand: " + cardToString(game.playerCards[p][0]) + " " +
+			cardToString(game.playerCards[p][1]) + "\n"
+		game.connections[p].Write(message)
 	}
 
 	//TODO: send card pairs out to appropriate users

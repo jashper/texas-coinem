@@ -29,7 +29,7 @@ func main() {
 
 	var params Server.GameParameters
 	levelTime := time.Duration(5) * time.Minute
-	turnTime := time.Duration(60) * time.Second
+	turnTime := time.Duration(360) * time.Second
 	extraTime := time.Duration(0)
 	params.Init(Server.HOLDEM, Server.NO_LIMIT, blinds,
 		1500, 3, levelTime, turnTime, extraTime)

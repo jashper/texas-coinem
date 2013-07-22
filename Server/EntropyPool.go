@@ -38,3 +38,48 @@ func (this EntropyPool) run(reseed int) {
 		}
 	}
 }
+
+func cardToString(card int) (cardStr string) {
+	rank := (card - 1) / 4
+
+	if rank == 0 {
+		cardStr = "2"
+	} else if rank == 1 {
+		cardStr = "3"
+	} else if rank == 2 {
+		cardStr = "4"
+	} else if rank == 3 {
+		cardStr = "5"
+	} else if rank == 4 {
+		cardStr = "6"
+	} else if rank == 5 {
+		cardStr = "7"
+	} else if rank == 6 {
+		cardStr = "8"
+	} else if rank == 7 {
+		cardStr = "9"
+	} else if rank == 8 {
+		cardStr = "T"
+	} else if rank == 9 {
+		cardStr = "J"
+	} else if rank == 10 {
+		cardStr = "Q"
+	} else if rank == 11 {
+		cardStr = "K"
+	} else if rank == 12 {
+		cardStr = "A"
+	}
+
+	suit := card % 4
+	if suit == 0 {
+		cardStr += "s"
+	} else if suit == 1 {
+		cardStr += "c"
+	} else if suit == 2 {
+		cardStr += "d"
+	} else if suit == 3 {
+		cardStr += "h"
+	}
+
+	return
+}
