@@ -34,13 +34,13 @@ func main() {
 	params.Init(Server.HOLDEM, Server.NO_LIMIT, blinds,
 		1500, 3, levelTime, turnTime, extraTime)
 
+	var game Server.GameInstance
+	context.CurrentGame = &game
 	for len(context.Connections) < 3 {
 		time.Sleep(1 * time.Second)
 	}
+	time.Sleep(4 * time.Second)
 
-	time.Sleep(7 * time.Second)
-
-	var game Server.GameInstance
 	game.Init(&context, context.Connections, params)
 
 	var wg sync.WaitGroup

@@ -2,6 +2,7 @@ package Server
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -121,6 +122,14 @@ func (this *GameInstance) newTurn(playerID int32) {
 
 	this.activePlayer = playerID
 
+	potMesg := "\nPots| " + this.getUsername(0) + ": " + fmt.Sprint(this.playerPots[0])
+	for i := 1; i < len(this.playerPots); i++ {
+		potMesg += ", " + this.getUsername(i) + ": " + fmt.Sprint(this.playerPots[i])
+	}
+	this.broadcastMessage(potMesg)
+
+	this.broadcastMessage("Active Players: " + fmt.Sprint(this.playerQueue))
+
 	this.broadcastMessage("Start of turn for " + this.getUsername(int(playerID)))
 
 	la := this.legalActions
@@ -143,7 +152,7 @@ func (this *GameInstance) newTurn(playerID int32) {
 	if la.allin {
 		laString += " | " + "ALLIN"
 	}
-	this.connections[playerID].Write("Legal actions: " + laString[3:])
+	this.connections[playerID].Write("Legal actions: " + laString[3:] + "\n")
 
 	active := this.isPlayerActive[playerID]
 	if active {
@@ -265,14 +274,6 @@ func (this *GameInstance) newHand() {
 	}
 	this.broadcastMessage(stackMesg)
 
-	potMesg := "Pots| " + this.getUsername(0) + ": " +
-		strconv.FormatInt(int64(this.playerPots[0]), 10)
-	for i := 1; i < len(this.playerPots); i++ {
-		potMesg += ", " + this.getUsername(i) + ": " +
-			strconv.FormatInt(int64(this.playerPots[i]), 10)
-	}
-	this.broadcastMessage(potMesg)
-
 	this.logic.DealCards(this)
 	this.newTurn(int32(this.getNextPlayer()))
 }
@@ -284,7 +285,7 @@ func (this *GameInstance) getNextPlayer() int {
 		this.playerQueueActiveIdx++
 	}
 
-	return this.playerQueueActiveIdx
+	return this.playerQueue[this.playerQueueActiveIdx]
 }
 
 func (this *GameInstance) getAvailableChips(playerID int) float64 {
@@ -430,10 +431,9 @@ func (this *GameInstance) setAllIn(playerID int) {
 }
 
 func (this *GameInstance) removeFromQueue(playerID int) {
-	pq := this.playerQueue
-	for i := 0; i < len(pq); i++ {
-		if pq[i] == playerID {
-			pq = append(pq[:i], pq[i+1:]...)
+	for i := 0; i < len(this.playerQueue); i++ {
+		if this.playerQueue[i] == playerID {
+			this.playerQueue = append(this.playerQueue[:i], this.playerQueue[i+1:]...)
 		}
 	}
 	this.playerQueueActiveIdx--
@@ -455,6 +455,14 @@ func (this *GameInstance) broadcastMessage(message string) {
 		err := c.Write(c.userName + "-> " + message + "\n")
 		if err != nil {
 			this.isPlayerActive[i] = false
+		}
+	}
+}
+
+func (this *GameInstance) TakeTurnAsUser(userName, command string) {
+	for i := 0; i < len(this.connections); i++ {
+		if this.connections[i].userName == userName {
+			this.TakeTurn(int32(i), command, false, 0)
 		}
 	}
 }
@@ -486,9 +494,9 @@ func (this *GameInstance) endHand() {
 	}
 	inThePot = append(inThePot, foldedPot...)
 
-	pots := make([]float64, len(inThePot)-len(foldedPot))
-	strengths := make([]int, len(inThePot)-len(foldedPot))
-	for i := 0; i < len(inThePot)-len(foldedPot); i++ {
+	pots := make([]float64, len(inThePot))
+	strengths := make([]int, len(inThePot))
+	for i := 0; i < len(inThePot); i++ {
 		p := inThePot[i]
 
 		pot := this.playerPots[p]
@@ -530,12 +538,14 @@ func (this *GameInstance) endHand() {
 				break
 			}
 			if unsortedStrengths[j] == strength {
-				tempPtr.players = append(tempPtr.players, j)
+				if inQueue[inThePot[j]] {
+					tempPtr.players = append(tempPtr.players, j)
+				}
 				count--
 			}
 		}
 
-		if i-1 >= 0 {
+		if i-1 >= 0 && len(tempPtr.players) > 0 {
 			tempPtr.next = &payoutList{make([]int, 0), nil}
 			tempPtr = tempPtr.next
 		}
@@ -549,6 +559,8 @@ func (this *GameInstance) endHand() {
 		changeToStack := float64(0)
 		for pot > 0 {
 			playersToPay := tempPtr.players
+			fmt.Println(p)
+			fmt.Println(playersToPay)
 
 			donePaying := false
 			for b := 0; b < len(playersToPay); b++ {
@@ -563,7 +575,7 @@ func (this *GameInstance) endHand() {
 
 			sortedPots := make([]float64, len(playersToPay))
 			for b := 0; b < len(playersToPay); b++ {
-				sortedPots[b] = pots[playersToPay[b]]
+				sortedPots[b] = pots[inThePot[playersToPay[b]]]
 			}
 			sort.Float64s(sortedPots)
 
@@ -571,7 +583,7 @@ func (this *GameInstance) endHand() {
 			hasBeenSeen := make([]bool, len(playersToPay))
 			for i := 0; i < len(sortedPots); i++ {
 				for j := 0; j < len(playersToPay); j++ {
-					if pots[playersToPay[j]] == sortedPots[i] && !hasBeenSeen[j] {
+					if pots[inThePot[playersToPay[j]]] == sortedPots[i] && !hasBeenSeen[j] {
 						idxOrder[i] = j
 						break
 					}
@@ -580,26 +592,35 @@ func (this *GameInstance) endHand() {
 
 			toPay := make([]float64, len(playersToPay))
 			for b := 0; b < len(sortedPots); b++ {
-				toPayIdx := idxOrder[b]
-
 				greaterThan := float64(len(sortedPots) - b)
 
+				amtToPay := float64(0)
 				if b != 0 {
-					toPay[toPayIdx] = toPay[idxOrder[b-1]]
 					if sortedPots[b] == sortedPots[b-1] {
 						continue
 					}
-					toPay[toPayIdx] += (sortedPots[b] - sortedPots[b-1]) / greaterThan
+					amtToPay = math.Min(greaterThan*(sortedPots[b]-sortedPots[b-1]), pot)
 				} else {
-					toPay[toPayIdx] = sortedPots[0] / greaterThan
+					amtToPay = math.Min(greaterThan*sortedPots[0], pot)
+				}
+
+				pot -= amtToPay
+				amtToPay /= greaterThan
+
+				if amtToPay > 0 {
+					for g := b; g < len(sortedPots); g++ {
+						toPay[idxOrder[g]] += amtToPay
+					}
 				}
 			}
 
 			for b := 0; b < len(toPay); b++ {
 				this.playerStacks[inThePot[playersToPay[b]]] += toPay[b]
-				pot -= toPay[b]
 				changeToStack -= toPay[b]
 			}
+
+			fmt.Println("made it through once")
+			fmt.Println(pot)
 
 			tempPtr = tempPtr.next
 		}

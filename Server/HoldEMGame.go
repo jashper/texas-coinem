@@ -1,16 +1,15 @@
 package Server
 
+import (
+	"fmt"
+)
+
 type HoldEMGame struct {
 	GameLogic
 }
 
 func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInstance) {
 	action, value := game.parseRequestedAction(command)
-
-	endOfStreet := false
-	if game.actionPlayer == -1 && game.playerPots[playerID] == game.bb {
-		endOfStreet = true
-	}
 
 	unPaid := game.amtToCall - game.playerPots[playerID]
 	if action == FOLD {
@@ -42,9 +41,22 @@ func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInsta
 
 	nextPlayer := game.getNextPlayer()
 
+	endOfStreet := false
+
+	if len(game.boardCards) == 0 {
+		if action == CHECK && game.playerPots[playerID] == game.bb {
+			endOfStreet = true
+		} else if len(game.playerQueue) == 1 {
+			endOfStreet = true
+		}
+	}
+
 	if game.actionPlayer == nextPlayer {
 		endOfStreet = true
 	}
+
+	actionMessage := game.getUsername(playerID) + "->" + command
+	game.broadcastMessage(actionMessage)
 
 	//TODO: send out summary of updates (ie:
 	//   end of turn, new street, end of hand)
@@ -69,6 +81,8 @@ func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInsta
 				game.boardCards = append(game.boardCards,
 					game.getNewCard(), game.getNewCard())
 			}
+			boardMessage := "New board: " + fmt.Sprint(game.boardCards)
+			game.broadcastMessage(boardMessage)
 
 			game.newTurn(int32(game.actionPlayer))
 		}

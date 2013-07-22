@@ -22,7 +22,7 @@ func (this ConnectionManager) Run(network, address string) {
 			continue
 		}
 		var c Connection
-		c.Init(socket)
+		c.Init(socket, this.Context.CurrentGame)
 		this.Context.Connections = append(this.Context.Connections, &c)
 	}
 }

@@ -5,6 +5,7 @@ type ServerContext struct {
 	Entropy     *EntropyPool
 	HandEval    *HandEvaluator
 	Connections []*Connection
+	CurrentGame *GameInstance
 }
 
 func (this *ServerContext) Init(db *Database, entropy *EntropyPool,

@@ -7,10 +7,12 @@ import "strings"
 type Connection struct {
 	socket   net.Conn
 	userName string
+	game     *GameInstance
 }
 
-func (this *Connection) Init(socket net.Conn) {
+func (this *Connection) Init(socket net.Conn, game *GameInstance) {
 	this.socket = socket
+	this.game = game
 	go this.run()
 }
 
@@ -30,6 +32,8 @@ func (this *Connection) run() {
 		if strings.Contains(message, "username") {
 			split := strings.Split(message, ":")
 			this.userName = split[1]
+		} else {
+			this.game.TakeTurnAsUser(this.userName, message)
 		}
 	}
 }
