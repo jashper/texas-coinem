@@ -44,7 +44,7 @@ func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInsta
 	endOfStreet := false
 
 	if len(game.boardCards) == 0 {
-		if action == CHECK && game.playerPots[playerID] == game.bb {
+		if action == CHECK && game.playerPots[playerID] == game.amtToCall {
 			endOfStreet = true
 		} else if len(game.playerQueue) == 1 {
 			endOfStreet = true
@@ -55,11 +55,9 @@ func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInsta
 		endOfStreet = true
 	}
 
-	actionMessage := game.getUsername(playerID) + "->" + command
+	actionMessage := game.getUsername(playerID) + "->" + action.toString()
 	game.broadcastMessage(actionMessage)
-
-	//TODO: send out summary of updates (ie:
-	//   end of turn, new street, end of hand)
+	fmt.Println(endOfStreet)
 
 	if !endOfStreet {
 		game.newTurn(int32(nextPlayer))
@@ -67,13 +65,27 @@ func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInsta
 		if len(game.playerQueue) == 1 || len(game.boardCards) == 5 {
 			game.endHand()
 		} else {
-			for i := 0; i < len(game.playerQueue); i++ {
-				if game.playerQueue[i] == game.buttonPlayer {
-					game.playerQueueActiveIdx = i
-					break
+			buttonFound := false
+			tempButton := game.buttonPlayer - 1
+			for !buttonFound {
+				if tempButton == game.parameters.PlayerCount-1 {
+					tempButton = 0
+				} else {
+					tempButton++
+				}
+				for i := 0; i < len(game.playerQueue); i++ {
+					if game.playerQueue[i] == tempButton {
+						game.playerQueueActiveIdx = i
+						buttonFound = true
+						break
+					}
 				}
 			}
-			game.actionPlayer = game.getNextPlayer()
+			if tempButton == game.buttonPlayer {
+				game.actionPlayer = game.getNextPlayer()
+			} else {
+				game.actionPlayer = tempButton
+			}
 			game.prevBet = 0
 
 			game.boardCards = append(game.boardCards, game.getNewCard())
@@ -81,7 +93,10 @@ func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInsta
 				game.boardCards = append(game.boardCards,
 					game.getNewCard(), game.getNewCard())
 			}
-			boardMessage := "New board: " + fmt.Sprint(game.boardCards)
+			boardMessage := "New board:"
+			for i := 0; i < len(game.boardCards); i++ {
+				boardMessage += " " + cardToString(game.boardCards[i])
+			}
 			game.broadcastMessage(boardMessage)
 
 			game.newTurn(int32(game.actionPlayer))
@@ -100,6 +115,4 @@ func (this HoldEMGame) DealCards(game *GameInstance) {
 			cardToString(game.playerCards[p][1]) + "\n"
 		game.connections[p].Write(message)
 	}
-
-	//TODO: send card pairs out to appropriate users
 }

@@ -28,15 +28,15 @@ func main() {
 	blinds.Init(sbs, antes)
 
 	var params Server.GameParameters
-	levelTime := time.Duration(5) * time.Minute
+	levelTime := time.Duration(30) * time.Second
 	turnTime := time.Duration(360) * time.Second
 	extraTime := time.Duration(0)
 	params.Init(Server.HOLDEM, Server.NO_LIMIT, blinds,
-		1500, 3, levelTime, turnTime, extraTime)
+		1500, 4, levelTime, turnTime, extraTime)
 
 	var game Server.GameInstance
 	context.CurrentGame = &game
-	for len(context.Connections) < 3 {
+	for len(context.Connections) < 4 {
 		time.Sleep(1 * time.Second)
 	}
 	time.Sleep(4 * time.Second)
