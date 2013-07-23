@@ -4,10 +4,18 @@ import (
 	"time"
 )
 
-func QueueTurnTimer(playerID int32, timerID int, interval time.Duration, game *GameInstance) {
+func QueueTurnTimer(playerID int, timerID int, interval time.Duration, game *GameInstance) {
 	time.Sleep(interval)
 
-	game.TakeTurn(playerID, "", true, timerID)
+	action := GameAction{}
+	canCheck := g.currentLA.check
+	if canCheck {
+		action.aType = CHECK
+	} else {
+		action.aType = FOLD
+	}
+
+	game.TakeTurn(playerID, action, true, timerID)
 }
 
 func QueueBlindsTimer(interval time.Duration, game *GameInstance) {

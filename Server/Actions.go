@@ -1,9 +1,9 @@
 package Server
 
-type GameAction int
+type GameActionType int
 
 const (
-	FOLD GameAction = iota
+	FOLD GameActionType = iota
 	CHECK
 	CALL
 	BET
@@ -11,19 +11,7 @@ const (
 	ALLIN
 )
 
-type LegalActions struct {
-	fold  bool
-	check bool
-	call  bool
-	bet   bool
-	raise bool
-	allin bool
-
-	min float64
-	max float64
-}
-
-func (this *GameAction) toString() (value string) {
+func (this *GameActionType) toString() (value string) {
 	if *this == FOLD {
 		value = "FOLD"
 	} else if *this == CHECK {
@@ -39,4 +27,21 @@ func (this *GameAction) toString() (value string) {
 	}
 
 	return
+}
+
+type GameAction struct {
+	aType GameActionType
+	value float64
+}
+
+type LegalActions struct {
+	fold  bool
+	check bool
+	call  bool
+	bet   bool
+	raise bool
+	allin bool
+
+	min float64
+	max float64
 }
