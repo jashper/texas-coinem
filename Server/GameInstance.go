@@ -5,18 +5,28 @@ import (
 	"sync/atomic"
 )
 
+// ############################################
+//     Helper Structs
+// ############################################
+
+// Different game variants implement this interface (ie: HoldEM, Stud, etc.)
 type GameLogic interface {
 	UpdateState(playerID int, action GameAction, game *GameInstance)
 	DealCards(game *GameInstance)
 }
 
+// Used to keep track of player game-state info
 type PlayerInfo struct {
-	isConnected bool
+	isConnected bool // is currently connected to the server
 	stack       float64
 	pot         float64
 	hand        []int
 	hasFolded   bool
 }
+
+// ############################################
+//     Constructor Struct & Init
+// ############################################
 
 type GameInstance struct {
 	context    *ServerContext
@@ -25,14 +35,22 @@ type GameInstance struct {
 
 	connections []*Connection
 	interrupts  chan GameInterrupt
-	timerID     int
+	timerID     int // used to guarantee that a "stale" timer
+	// can't take a turn that has already been taken (ie: this
+	// value is incremented for each new timer goprocess spawn)
 
-	players         []PlayerInfo
-	buttonPlayer    int
-	currentPlayer   int32
+	players       []PlayerInfo
+	buttonPlayer  int
+	currentPlayer int32 // its purpose is to guarantee that only
+	// one goprocess can take a turn and update the state of the game
+
 	currentLA       LegalActions
-	streetEndPlayer int
-	activeCount     int
+	streetEndPlayer int // denotes the player that will end the
+	// current street
+
+	activeCount int // how many players can still take a turn
+	// during a hand (ie: how many haven't folded, aren't all-in,
+	// or aren't out of the game)
 
 	deck       [52]int
 	deckIdx    int
@@ -43,8 +61,11 @@ type GameInstance struct {
 	sb         float64
 	bb         float64
 	ante       float64
-	maxPot     float64
-	minBet     float64
+	maxPot     float64 // largest amount a single player has
+	// committed to the pot
+
+	minBet float64 // minimum bet or raise a player must make
+	// if he wishes to bet or raise
 }
 
 func (g *GameInstance) Init(context *ServerContext, parameters GameParameters,
@@ -58,7 +79,7 @@ func (g *GameInstance) Init(context *ServerContext, parameters GameParameters,
 	}
 
 	g.connections = connections
-	g.interrupts = make(chan GameInterrupt, 25) // Big enough buffer?
+	g.interrupts = make(chan GameInterrupt, 25) // TODO: Big enough buffer?
 	g.timerID = 0
 
 	g.players = make([]PlayerInfo, parameters.PlayerCount)
@@ -74,32 +95,45 @@ func (g *GameInstance) Init(context *ServerContext, parameters GameParameters,
 
 	g.boardCards = make([]int, 0)
 
-	g.handID = -1
+	g.handID = -1 // make sure nothing can take a turn until newHand()
+	// is run for the first time
+
 	g.blindLevel = 0
 
 	go QueueBlindsTimer(parameters.LevelTime, g)
 	g.newHand()
 }
 
+// ############################################
+//     Turn taking & game state update methods
+// ############################################
+
+// The only method that gets called outside of GameInstance; it's
+// responsible for updating the state of the game after each
+// player tries to take an action
 func (g *GameInstance) TakeTurn(playerID int, action GameAction,
 	isTimer bool, timerID int) {
 
+	// check against "stale" timers
 	if isTimer && timerID != g.timerID {
 		return
 	}
 
+	// non-blocking way of guaranteeing that only the right player or timer
+	// for that player can take a turn and update the state
 	if !atomic.CompareAndSwapInt32(&g.currentPlayer, int32(playerID), -1) {
 		return
 	}
 
 	if isTimer {
-		g.players[playerID].isConnected = false
+		g.players[playerID].isConnected = false // player is now sitting out
 		// TODO: Send local "sitting-out" message
 	}
 
 	g.logic.UpdateState(playerID, action, g)
 }
 
+// Prepares the game-state for the next player to take a turn
 func (g *GameInstance) newTurn(playerID int) {
 	g.updateLegalActions(playerID)
 	g.currentPlayer = int32(playerID)
@@ -107,10 +141,10 @@ func (g *GameInstance) newTurn(playerID int) {
 	//TODO: Send out new turn message
 
 	isConnected := g.players[playerID].isConnected
-	if isConnected {
+	if isConnected { // set a timer for the player to take a turn
 		g.timerID++
 		go QueueTurnTimer(playerID, g.timerID, g.parameters.TurnTime, g)
-	} else {
+	} else { // if sitting out, automatically take his turn
 		action := GameAction{}
 		canCheck := g.currentLA.check
 		if canCheck {
@@ -124,7 +158,9 @@ func (g *GameInstance) newTurn(playerID int) {
 
 }
 
+// Prepares the game-state for a new hand to start
 func (g *GameInstance) newHand() {
+	// Process server interrupts (useful for tournaments & rebalancing tables)
 	select {
 	case interrupt := <-g.interrupts:
 		g.handleInterrupt(interrupt)
@@ -187,7 +223,9 @@ func (g *GameInstance) newHand() {
 		}
 	}
 
-	g.streetEndPlayer = -1
+	g.streetEndPlayer = -1 // needed for the odd nature of pre-flop, where
+	// blinds are in place instead of an initial bet; whenever a player bets
+	// or raises, this value will change to their playerID
 	g.maxPot = g.bb + g.ante
 	g.minBet = g.bb
 
@@ -195,12 +233,17 @@ func (g *GameInstance) newHand() {
 	g.newTurn(g.getNextPlayer(bbIdx))
 }
 
+// Deals additional cards if players went all-in before the last street, as
+// well as determines hand strengths and the amount of chips each player
+// either gains or loses
 func (g *GameInstance) endHand(handSize, boardSize int) {
+	// deal additional cards if necessary
 	for len(g.boardCards) < boardSize {
 		g.boardCards = append(g.boardCards,
 			g.getNewCard())
 	}
 
+	// compute player hand strengths relative to the board
 	pots := make([]float64, len(g.players))
 	strengths := make([]int, len(g.players))
 	for i := 0; i < len(g.players); i++ {
@@ -220,6 +263,8 @@ func (g *GameInstance) endHand(handSize, boardSize int) {
 		strengths[i] = int(strength)
 	}
 
+	// for each player, determine if that players owes chips to any
+	// other players (ie: if they don't tie for or have the strongest hand)
 	for i := 0; i < len(g.players); i++ {
 		p := g.players[i]
 
@@ -227,6 +272,7 @@ func (g *GameInstance) endHand(handSize, boardSize int) {
 		toPayPots := make([]float64, 0)
 		toPayStrengths := make([]int, 0)
 
+		// find all players with better ranked hands
 		strength := strengths[i]
 		for j := 0; j < len(g.players); j++ {
 			if strengths[j] > strength {
@@ -240,6 +286,8 @@ func (g *GameInstance) endHand(handSize, boardSize int) {
 			continue
 		}
 
+		// find the best of the players that are better than you;
+		// there are multiple if they tie with each other
 		maxI := []int{0}
 		maxStrength := toPayStrengths[0]
 		for k := 1; k < len(toPayStrengths); k++ {
@@ -251,6 +299,9 @@ func (g *GameInstance) endHand(handSize, boardSize int) {
 			}
 		}
 
+		// complicated logic to determine how many chips are owed
+		// to each player; accounts for infinite side-pots; have fun
+		// trying to figure this part out
 		prevMin := float64(-1)
 		for len(maxI) > 0 {
 			minI := []int{0}
@@ -293,10 +344,11 @@ func (g *GameInstance) endHand(handSize, boardSize int) {
 	}
 }
 
-// ######################
-//       Helpers
-// ######################
+// ############################################
+//     Helper Methods
+// ############################################
 
+// Used to randomly determine the first person to have the button
 func (g *GameInstance) firstButtonPosition() int {
 	tempDeck := <-g.context.Entropy.Decks
 
@@ -325,6 +377,8 @@ func (g *GameInstance) firstButtonPosition() int {
 	return firstPlayer
 }
 
+// Determine the valid actions a player can take, before calling
+// newTurn() and broadcasting the fact that it's his turn
 func (g *GameInstance) updateLegalActions(playerID int) {
 	g.currentLA = LegalActions{}
 	la := &g.currentLA
@@ -342,18 +396,18 @@ func (g *GameInstance) updateLegalActions(playerID int) {
 			la.min = g.bb
 			la.max = maxLimit
 		} else {
-			la.allin = true
+			la.allin = true // incomplete bet, type of all-in
 		}
 	} else {
 		la.fold = true
 		if unPaid >= chips {
-			la.allin = true
+			la.allin = true // can't cover previous bet or raise, type of all-in
 		} else {
 			la.call = true
 			if minLimit == 0 {
 				la.allin = true
 			} else {
-				la.raise = true
+				la.raise = true // incomplete raise, type of all-in
 				la.min = minLimit
 				la.max = maxLimit
 			}
@@ -361,6 +415,8 @@ func (g *GameInstance) updateLegalActions(playerID int) {
 	}
 }
 
+// Determine the minimum amount a player must bet or raise by, depending
+// on the type of game
 func (g *GameInstance) getMinLimit(playerID int) (limit float64) {
 	unPaid := g.getChipsUnpaid(playerID)
 
@@ -375,6 +431,8 @@ func (g *GameInstance) getMinLimit(playerID int) (limit float64) {
 	return
 }
 
+// Determine the maximum amount a player can bet or raise by, depending
+// on the type of game
 func (g *GameInstance) getMaxLimit(playerID int) (limit float64) {
 	unPaid := g.getChipsUnpaid(playerID)
 
@@ -385,21 +443,28 @@ func (g *GameInstance) getMaxLimit(playerID int) (limit float64) {
 	return
 }
 
+// Find out how many more chips a player can put in the pot
 func (g *GameInstance) getChipsAvailable(playerID int) float64 {
 	return (g.players[playerID].stack - g.players[playerID].pot)
 }
 
+// Find out how many chips the player needs to put in the pot to call
 func (g *GameInstance) getChipsUnpaid(playerID int) float64 {
 	return (g.maxPot - g.players[playerID].pot)
 }
 
+// Execute the appropriate logic for various types of interrupts
 func (g *GameInstance) handleInterrupt(interrupt GameInterrupt) {
+	// Increment the blinds level and queue the timer for the next level
 	if interrupt.iType == I_GAME_NEW_BLINDS {
 		g.blindLevel++
 		go QueueBlindsTimer(g.parameters.LevelTime, g)
 	}
 }
 
+// Find the next active player in the game by looping rightwards/clockwise
+// through the player list; this player hasn't folded, isn't all-in,
+// and is still in the game (ie: non-zero stack)
 func (g *GameInstance) getNextPlayer(current int) int {
 	for g.players[current].pot == g.players[current].stack ||
 		g.players[current].hasFolded {
@@ -413,6 +478,7 @@ func (g *GameInstance) getNextPlayer(current int) int {
 	return current
 }
 
+// Grab the next card in the deck for this turn
 func (g *GameInstance) getNewCard() int {
 	card := g.deck[g.deckIdx]
 	g.deckIdx++
