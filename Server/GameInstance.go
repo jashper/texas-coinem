@@ -5,6 +5,16 @@ import (
 	"sync/atomic"
 )
 
+/*
+	This class is a state machine representing the mechanics for a single
+	poker table. It is responsible for delegating turn order and communicating
+	with players of any updates to the state of the game. Commands sent by players
+	to the server are parsed and processed in a non-blocking manner, by using
+	a single method, TakeTurn(), to give access to goprocesses.  This method
+	utilizes an atomic compare and swap to limit the usage of this class to only
+	one goprocess at a time (ie: the appropriate player or timer for that player)
+*/
+
 // ############################################
 //     Helper Structs
 // ############################################
@@ -130,6 +140,8 @@ func (g *GameInstance) TakeTurn(playerID int, action GameAction,
 		// TODO: Send local "sitting-out" message
 	}
 
+	// TODO: make sure this action is legal
+
 	g.logic.UpdateState(playerID, action, g)
 }
 
@@ -160,7 +172,7 @@ func (g *GameInstance) newTurn(playerID int) {
 
 // Prepares the game-state for a new hand to start
 func (g *GameInstance) newHand() {
-	// Process server interrupts (useful for tournaments & rebalancing tables)
+	// process server interrupts (useful for tournaments & rebalancing tables)
 	select {
 	case interrupt := <-g.interrupts:
 		g.handleInterrupt(interrupt)
@@ -345,7 +357,7 @@ func (g *GameInstance) endHand(handSize, boardSize int) {
 }
 
 // ############################################
-//     Helper Methods
+//     Helper methods
 // ############################################
 
 // Used to randomly determine the first person to have the button
