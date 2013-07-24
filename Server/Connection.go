@@ -1,8 +1,20 @@
 package Server
 
-import "net"
-import "fmt"
-import "strings"
+import (
+	"fmt"
+	"net"
+	"strings"
+)
+
+/*
+	This class continually listens to a socket and parses
+	any incoming messages.  It also provides a method
+	to write messages to a socket.
+*/
+
+// ############################################
+//     Constructor Struct & Init
+// ############################################
 
 type Connection struct {
 	socket   net.Conn
@@ -21,7 +33,7 @@ func (this *Connection) run() {
 	fmt.Println("New user connected")
 
 	for {
-		bytes := make([]byte, 100) // TODO: Buffer size?
+		bytes := make([]byte, 100) // TODO: packet size?
 		length, err := this.socket.Read(bytes)
 		if err != nil {
 			fmt.Println("User disconnected")
@@ -29,12 +41,8 @@ func (this *Connection) run() {
 		}
 
 		message := string(bytes[:length])
-		if strings.Contains(message, "username") {
-			split := strings.Split(message, ":")
-			this.userName = split[1]
-		} else {
-			//this.game.TakeTurnAsUser(this.userName, message)
-		}
+
+		// TODO: parse message
 	}
 }
 

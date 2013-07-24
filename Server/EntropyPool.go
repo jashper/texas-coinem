@@ -5,8 +5,18 @@ import (
 	"time"
 )
 
+/*
+	This class creates a queue of randomly generated decks
+	that can be pulled from at anytime.  It reseeds every
+	time a set amount of hands has been retrieved.
+*/
+
+// ############################################
+//     Constructor Struct & Init
+// ############################################
+
 type EntropyPool struct {
-	Decks chan [52]int
+	Decks chan [52]int // Other classes pull directly from this channel
 }
 
 func (this *EntropyPool) Init(bufCount, reseed int) {

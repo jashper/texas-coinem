@@ -8,6 +8,10 @@ package Server
 	variants of GameLogic, and can probably be moved to GameInstance
 */
 
+// ############################################
+//     Constructor Struct
+// ############################################
+
 type HoldEMGame struct {
 	GameLogic
 }

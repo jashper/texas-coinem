@@ -19,8 +19,8 @@ func main() {
 	var context Server.ServerContext
 	context.Init(&db, &entropy, &handEval)
 
-	manager := Server.ConnectionManager{&context}
-	go manager.Run("tcp", ":7001")
+	var manager Server.ConnectionManager
+	go manager.Init("tcp", ":7001", &context)
 
 	sbs := []float64{2, 4, 8, 16}
 	antes := []float64{0, 1, 2, 4}

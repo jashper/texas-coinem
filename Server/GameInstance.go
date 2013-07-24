@@ -34,6 +34,19 @@ type PlayerInfo struct {
 	hasFolded   bool
 }
 
+// Keeps track of valid actions for a specific player's turn
+type LegalActions struct {
+	fold  bool
+	check bool
+	call  bool
+	bet   bool
+	raise bool
+	allin bool
+
+	min float64
+	max float64
+}
+
 // ############################################
 //     Constructor Struct & Init
 // ############################################
@@ -47,12 +60,13 @@ type GameInstance struct {
 	interrupts  chan GameInterrupt
 	timerID     int // used to guarantee that a "stale" timer
 	// can't take a turn that has already been taken (ie: this
-	// value is incremented for each new timer goprocess spawn)
+	// value is incremented for each new timer goprocess spawned)
 
 	players       []PlayerInfo
 	buttonPlayer  int
 	currentPlayer int32 // its purpose is to guarantee that only
 	// one goprocess can take a turn and update the state of the game
+	// (ie: through atomic CAS)
 
 	currentLA       LegalActions
 	streetEndPlayer int // denotes the player that will end the
@@ -105,8 +119,8 @@ func (g *GameInstance) Init(context *ServerContext, parameters GameParameters,
 
 	g.boardCards = make([]int, 0)
 
-	g.handID = -1 // make sure nothing can take a turn until newHand()
-	// is run for the first time
+	g.handID = -1 // make sure nothing can take a turn until newHand() executes
+	// for the first time
 
 	g.blindLevel = 0
 
@@ -298,7 +312,7 @@ func (g *GameInstance) endHand(handSize, boardSize int) {
 			continue
 		}
 
-		// find the best of the players that are better than you;
+		// find the best of these players;
 		// there are multiple if they tie with each other
 		maxI := []int{0}
 		maxStrength := toPayStrengths[0]

@@ -1,5 +1,14 @@
 package Server
 
+/*
+	This class pairs a constant enum representing a legal game action
+	with an optional value.
+*/
+
+// ############################################
+//     Enum definition
+// ############################################
+
 type GameActionType int
 
 const (
@@ -11,6 +20,7 @@ const (
 	ALLIN
 )
 
+// Helper parsing method
 func (this *GameActionType) toString() (value string) {
 	if *this == FOLD {
 		value = "FOLD"
@@ -29,19 +39,11 @@ func (this *GameActionType) toString() (value string) {
 	return
 }
 
+// ############################################
+//     Constructor Struct
+// ############################################
+
 type GameAction struct {
 	aType GameActionType
 	value float64
-}
-
-type LegalActions struct {
-	fold  bool
-	check bool
-	call  bool
-	bet   bool
-	raise bool
-	allin bool
-
-	min float64
-	max float64
 }

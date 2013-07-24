@@ -1,9 +1,22 @@
 package Server
 
+/*
+	This class stores the progression of blind and ante values, each
+	level lasting a constant duration defined by GameParameters.
+*/
+
+// ############################################
+//     Helper Struct
+// ############################################
+
 type BlindLevel struct {
-	sb   float64
+	sb   float64 // the bb is twice this amount
 	ante float64
 }
+
+// ############################################
+//     Constructor Struct & Init
+// ############################################
 
 type Blinds struct {
 	levels []BlindLevel
