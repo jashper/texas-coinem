@@ -33,7 +33,7 @@ func (this *Connection) run() {
 			split := strings.Split(message, ":")
 			this.userName = split[1]
 		} else {
-			this.game.TakeTurnAsUser(this.userName, message)
+			//this.game.TakeTurnAsUser(this.userName, message)
 		}
 	}
 }

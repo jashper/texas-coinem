@@ -1,118 +1,74 @@
 package Server
 
-import (
-	"fmt"
-)
-
 type HoldEMGame struct {
 	GameLogic
 }
 
-func (this HoldEMGame) UpdateState(playerID int, command string, game *GameInstance) {
-	action, value := game.parseRequestedAction(command)
+func (this HoldEMGame) UpdateState(playerID int, action GameAction, g *GameInstance) {
+	p := g.players[playerID]
 
-	unPaid := game.amtToCall - game.playerPots[playerID]
-	if action == FOLD {
-		game.removeFromQueue(playerID)
-	} else if action == CHECK {
-		// do nothing
-	} else if action == CALL {
-		game.playerPots[playerID] += unPaid
-	} else if action == BET || action == RAISE {
-		game.actionPlayer = playerID
-		game.amtToCall += value
-		game.prevBet = value
-		game.playerPots[playerID] += unPaid + value
+	unPaid := g.getChipsUnpaid(playerID)
+	if action.aType == FOLD {
+		p.hasFolded = true
+		g.activeCount--
+	} else if action.aType == CHECK {
+		//do nothing
+	} else if action.aType == BET || action.aType == RAISE {
+		g.streetEndPlayer = playerID
+		g.maxPot += action.value
+		g.minBet = action.value
+		p.pot += unPaid + action.value
 
-		if game.getAvailableChips(playerID) == 0 {
-			game.setAllIn(playerID)
+		if g.getChipsAvailable(playerID) == 0 {
+			g.activeCount--
 		}
-	} else if action == ALLIN {
-		chips := game.getAvailableChips(playerID)
+	} else if action.aType == ALLIN {
+		chips := g.getChipsAvailable(playerID)
 
 		if unPaid < chips {
-			game.actionPlayer = playerID
-			game.amtToCall += (chips - unPaid)
+			g.streetEndPlayer = playerID
+			g.maxPot += chips - unPaid
 		}
 
-		game.playerPots[playerID] += chips
-		game.setAllIn(playerID)
+		p.pot += chips
+		g.activeCount--
 	}
 
-	nextPlayer := game.getNextPlayer()
-
+	nextPlayer := g.getNextPlayer(playerID)
 	endOfStreet := false
 
-	if len(game.boardCards) == 0 {
-		if action == CHECK && game.playerPots[playerID] == game.amtToCall {
-			endOfStreet = true
-		} else if len(game.playerQueue) == 1 {
+	if len(g.boardCards) == 0 {
+		if action.aType == CHECK || g.activeCount == 1 {
 			endOfStreet = true
 		}
 	}
-
-	if game.actionPlayer == nextPlayer {
+	if g.streetEndPlayer == nextPlayer {
 		endOfStreet = true
 	}
 
-	actionMessage := game.getUsername(playerID) + "->" + action.toString()
-	game.broadcastMessage(actionMessage)
-	fmt.Println(endOfStreet)
-
 	if !endOfStreet {
-		game.newTurn(int32(nextPlayer))
+		g.newTurn(nextPlayer)
 	} else {
-		if len(game.playerQueue) == 1 || len(game.boardCards) == 5 {
-			game.endHand()
+		if g.activeCount == 1 || len(g.boardCards) == 5 {
+			g.endHand(2, 5)
 		} else {
-			buttonFound := false
-			tempButton := game.buttonPlayer - 1
-			for !buttonFound {
-				if tempButton == game.parameters.PlayerCount-1 {
-					tempButton = 0
-				} else {
-					tempButton++
-				}
-				for i := 0; i < len(game.playerQueue); i++ {
-					if game.playerQueue[i] == tempButton {
-						game.playerQueueActiveIdx = i
-						buttonFound = true
-						break
-					}
-				}
-			}
-			if tempButton == game.buttonPlayer {
-				game.actionPlayer = game.getNextPlayer()
-			} else {
-				game.actionPlayer = tempButton
-			}
-			game.prevBet = 0
+			g.streetEndPlayer = g.getNextPlayer(g.buttonPlayer)
+			g.minBet = 0
 
-			game.boardCards = append(game.boardCards, game.getNewCard())
-			if len(game.boardCards) == 1 {
-				game.boardCards = append(game.boardCards,
-					game.getNewCard(), game.getNewCard())
+			g.boardCards = append(g.boardCards, g.getNewCard())
+			if len(g.boardCards) == 1 {
+				g.boardCards = append(g.boardCards,
+					g.getNewCard(), g.getNewCard())
 			}
-			boardMessage := "New board:"
-			for i := 0; i < len(game.boardCards); i++ {
-				boardMessage += " " + cardToString(game.boardCards[i])
-			}
-			game.broadcastMessage(boardMessage)
 
-			game.newTurn(int32(game.actionPlayer))
+			g.newTurn(g.streetEndPlayer)
 		}
 	}
-
 }
 
-func (this HoldEMGame) DealCards(game *GameInstance) {
-	for i := 0; i < len(game.playerQueue); i++ {
-		p := game.playerQueue[i]
-		game.playerCards[p] = append(game.playerCards[p],
-			game.getNewCard(), game.getNewCard())
-
-		message := "Hand: " + cardToString(game.playerCards[p][0]) + " " +
-			cardToString(game.playerCards[p][1]) + "\n"
-		game.connections[p].Write(message)
+func (this HoldEMGame) DealCards(g *GameInstance) {
+	for i := 0; i < len(g.players); i++ {
+		p := g.players[i]
+		p.hand = append(p.hand, g.getNewCard(), g.getNewCard())
 	}
 }

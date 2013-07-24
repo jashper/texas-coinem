@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-func QueueTurnTimer(playerID int, timerID int, interval time.Duration, game *GameInstance) {
+func QueueTurnTimer(playerID int, timerID int, interval time.Duration, g *GameInstance) {
 	time.Sleep(interval)
 
 	action := GameAction{}
@@ -15,13 +15,13 @@ func QueueTurnTimer(playerID int, timerID int, interval time.Duration, game *Gam
 		action.aType = FOLD
 	}
 
-	game.TakeTurn(playerID, action, true, timerID)
+	g.TakeTurn(playerID, action, true, timerID)
 }
 
-func QueueBlindsTimer(interval time.Duration, game *GameInstance) {
+func QueueBlindsTimer(interval time.Duration, g *GameInstance) {
 	time.Sleep(interval)
 
 	interrupt := GameInterrupt{I_GAME_NEW_BLINDS}
 
-	game.interrupts <- interrupt
+	g.interrupts <- interrupt
 }

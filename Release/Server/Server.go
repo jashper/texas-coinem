@@ -41,7 +41,7 @@ func main() {
 	}
 	time.Sleep(4 * time.Second)
 
-	game.Init(&context, context.Connections, params)
+	game.Init(&context, params, context.Connections)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
