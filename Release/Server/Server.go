@@ -8,13 +8,11 @@ import (
 
 func main() {
 	var db Server.Database
-	db.Init("localhost:28015", "test", 10000)
-
 	var entropy Server.EntropyPool
-	entropy.Init(10000, 1000)
-
 	var handEval Server.HandEvaluator
-	handEval.Init("/Users/tanderson/go/bin/resources/texas-coinem/HandRanks.dat")
+	entropy.Init(10000, 1000)
+	db.Init("localhost:28015", "test", 10000)
+	handEval.Init("/Users/jashper/go/bin/resources/texas-coinem/HandRanks.dat")
 
 	var context Server.ServerContext
 	context.Init(&db, &entropy, &handEval)
@@ -27,21 +25,20 @@ func main() {
 	var blinds Server.Blinds
 	blinds.Init(sbs, antes)
 
-	var params Server.GameParameters
 	levelTime := time.Duration(30) * time.Second
 	turnTime := time.Duration(360) * time.Second
 	extraTime := time.Duration(0)
+
+	var params Server.GameParameters
 	params.Init(Server.HOLDEM, Server.NO_LIMIT, blinds,
 		1500, 3, levelTime, turnTime, extraTime)
 
-	var game Server.GameInstance
-	context.CurrentGame = &game
+	/*var game Server.GameInstance
 	for len(context.Connections) < 3 {
 		time.Sleep(1 * time.Second)
 	}
 	time.Sleep(4 * time.Second)
-
-	game.Init(&context, params, context.Connections)
+	game.Init(&context, params, context.Connections)*/
 
 	var wg sync.WaitGroup
 	wg.Add(1)

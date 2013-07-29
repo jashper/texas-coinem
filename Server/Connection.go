@@ -2,8 +2,8 @@ package Server
 
 import (
 	"fmt"
+	m "github.com/jashper/texas-coinem/Message"
 	"net"
-	"strings"
 )
 
 /*
@@ -18,13 +18,13 @@ import (
 
 type Connection struct {
 	socket   net.Conn
+	parser   Parser
 	userName string
-	game     *GameInstance
 }
 
-func (this *Connection) Init(socket net.Conn, game *GameInstance) {
+func (this *Connection) Init(socket net.Conn, context *ServerContext) {
 	this.socket = socket
-	this.game = game
+	this.parser.Init(this, context)
 	go this.run()
 }
 
@@ -33,20 +33,22 @@ func (this *Connection) run() {
 	fmt.Println("New user connected")
 
 	for {
-		bytes := make([]byte, 100) // TODO: packet size?
-		length, err := this.socket.Read(bytes)
+		var message [1]byte
+		_, err := this.socket.Read(message[:])
 		if err != nil {
 			fmt.Println("User disconnected")
 			return
 		}
 
-		message := string(bytes[:length])
-
-		// TODO: parse message
+		this.parser.Message(m.ServerMessage(message[0]))
 	}
 }
 
-func (this *Connection) Write(message string) error {
-	_, err := this.socket.Write([]byte(message))
+func (this *Connection) Write(message []byte) error {
+	_, err := this.socket.Write(message)
 	return err
+}
+
+func (this *Connection) Read(message []byte) { //input slice must be initialized
+	this.socket.Read(message)
 }

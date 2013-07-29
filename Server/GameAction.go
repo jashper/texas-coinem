@@ -9,7 +9,7 @@ package Server
 //     Enum definition
 // ############################################
 
-type GameActionType int
+type GameActionType byte
 
 const (
 	FOLD GameActionType = iota
