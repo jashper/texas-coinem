@@ -1,8 +1,9 @@
 package Server
 
 import (
+	"fmt"
 	m "github.com/jashper/texas-coinem/Message"
-	"reflect"
+	r "reflect"
 )
 
 type Parser struct {
@@ -21,18 +22,29 @@ func (this *Parser) getData(paramCount int) [][]byte {
 	var length [1]byte
 	for i := 0; i < paramCount; i++ {
 		this.connection.Read(length[:])
-		data[i] = make([]byte, uint8(length[0]))
+		data[i] = make([]byte, int(length[0]))
 		this.connection.Read(data[i])
 	}
 
 	return data
 }
 
-func (this *Parser) sendMessage(params []reflect.Value) {
-	message := make([]byte, 0)
+func (this *Parser) sendMessage(mType m.ClientMessage, params []r.Value) {
+	message := make([]byte, 1)
+	message[0] = byte(mType)
 	for i := 0; i < len(params); i++ {
-		message = append(message, byte(reflect.TypeOf(params[0]).Size()))
-		message = append(message, []byte(params[i].)...)
+		p := params[0]
+		if p.Kind() == r.String {
+			pStr := p.String()
+			message = append(message, byte(len(pStr)))
+			if len(pStr) > 255 {
+				fmt.Println("CRITICAL : Tried to send a string message greater than 255 characters")
+				return
+			}
+			message = append(message, []byte(pStr)...)
+		} else {
+			// TODO: other types
+		}
 	}
 	this.connection.Write(message)
 }
@@ -44,16 +56,13 @@ func (this *Parser) Message(mType m.ServerMessage) {
 		password := string(data[1])
 
 		err := RegisterUser(username, password, this.context)
-		var message [1]byte
+		var message m.ClientMessage
 		if err == nil {
-			message[0] = byte(m.CM_LOGIN_REGISTER_SUCCESS)
+			message = m.CM_LOGIN_REGISTER_SUCCESS
 		} else {
-			message[0] = byte(m.CM_LOGIN_REGISTER_FAILURE)
+			message = m.CM_LOGIN_REGISTER_FAILURE
 		}
 
-		toWrite := append(message[:], uint8(len(username)))
-		toWrite = append(toWrite, []byte(username)...)
-		toWrite = append(toWrite, uint8(len(password)))
-		toWrite = append(toWrite, []byte(password)...)
+		this.sendMessage(message, []r.Value{})
 	}
 }

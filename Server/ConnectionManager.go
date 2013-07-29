@@ -36,6 +36,5 @@ func (this *ConnectionManager) Init(network, address string, context *ServerCont
 		}
 		var c Connection
 		c.Init(socket, this.context)
-		this.context.Connections = append(this.context.Connections, &c)
 	}
 }

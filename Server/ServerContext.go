@@ -1,10 +1,9 @@
 package Server
 
 type ServerContext struct {
-	DB          *Database
-	Entropy     *EntropyPool
-	HandEval    *HandEvaluator
-	Connections []*Connection
+	DB       *Database
+	Entropy  *EntropyPool
+	HandEval *HandEvaluator
 }
 
 func (this *ServerContext) Init(db *Database, entropy *EntropyPool,
@@ -13,6 +12,5 @@ func (this *ServerContext) Init(db *Database, entropy *EntropyPool,
 	this.DB = db
 	this.Entropy = entropy
 	this.HandEval = handEval
-	this.Connections = make([]*Connection, 0)
 
 }
