@@ -2,6 +2,7 @@ package Server
 
 import (
 	"crypto/sha512"
+	"errors"
 	r "github.com/christopherhesse/rethinkgo"
 	"github.com/pmylund/go-hmaccrypt"
 )
@@ -14,6 +15,16 @@ type LoginDBEntry struct {
 }
 
 func RegisterUser(user, password string, context *ServerContext) (err error) {
+	request := r.Table("login").Filter(r.Row.Attr("Username").Eq(user))
+	var result []LoginDBEntry
+	if err = context.DB.MakeRequest(request).All(&result); err != nil {
+		return
+	}
+	if len(result) == 1 {
+		err = errors.New("Duplicate user")
+		return
+	}
+
 	pepper := []byte(pepperStr)
 	pass := []byte(password)
 
@@ -27,7 +38,7 @@ func RegisterUser(user, password string, context *ServerContext) (err error) {
 	digestStr := string(digest)
 
 	row := LoginDBEntry{user, digestStr}
-	request := r.Table("login").Insert(row)
+	request = r.Table("login").Insert(row)
 	err = context.DB.MakeRequest(request).Err()
 
 	return

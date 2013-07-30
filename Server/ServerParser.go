@@ -15,7 +15,7 @@ func (this *Parser) Init(connection *Connection, context *ServerContext) {
 	this.context = context
 }
 
-func (this *Parser) getStrings(paramCount int) []string {
+func (this *Parser) GetStrings(paramCount int) []string {
 	data := make([]string, paramCount)
 
 	var length [1]byte
@@ -29,30 +29,31 @@ func (this *Parser) getStrings(paramCount int) []string {
 	return data
 }
 
-func (this *Parser) appendStrings(message []byte, params []string) {
+func (this *Parser) AppendStrings(message *[]byte, params []string) {
 	for i := 0; i < len(params); i++ {
 		str := params[i]
 		if len(str) > 255 {
 			fmt.Println("CRITICAL : Tried to send a string message greater than 255 characters")
 			return
 		}
-		message = append(message, byte(len(str)))
-		message = append(message, []byte(str)...)
+		*message = append(*message, byte(len(str)))
+		*message = append(*message, []byte(str)...)
 	}
 }
 
 func (this *Parser) Message(mType m.ServerMessage) {
 	if mType == m.SM_LOGIN_REGISTER {
-		data := this.getStrings(2)
+		data := this.GetStrings(2)
 		username := data[0]
 		password := data[1]
 
+		// TODO: check for legal user/pass format (ie: min # of characters)
 		err := RegisterUser(username, password, this.context)
 		var message m.ClientMessage
 		if err == nil {
 			message = m.CM_LOGIN_REGISTER_SUCCESS
-		} else {
-			message = m.CM_LOGIN_REGISTER_FAILURE
+		} else { // TODO: Differentiate between errors
+			message = m.CM_LOGIN_REGISTER_DUPLICATE
 		}
 
 		toSend := []byte{byte(message)}

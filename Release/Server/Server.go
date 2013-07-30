@@ -12,7 +12,7 @@ func main() {
 	var handEval Server.HandEvaluator
 	entropy.Init(10000, 1000)
 	db.Init("localhost:28015", "test", 10000)
-	handEval.Init("/Users/jashper/go/bin/resources/texas-coinem/HandRanks.dat")
+	handEval.Init("/Users/tanderson/go/bin/resources/texas-coinem/HandRanks.dat")
 
 	var context Server.ServerContext
 	context.Init(&db, &entropy, &handEval)

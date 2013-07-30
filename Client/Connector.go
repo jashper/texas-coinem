@@ -1,8 +1,11 @@
 package Client
 
-import "net"
-import "fmt"
-import m "github.com/jashper/texas-coinem/Message"
+import (
+	"fmt"
+	m "github.com/jashper/texas-coinem/Message"
+	"net"
+	"strings"
+)
 
 type Connector struct {
 	socket net.Conn
@@ -21,11 +24,17 @@ func (this *Connector) Start(network, address string) {
 
 	go this.read()
 
-	/*for {
+	for {
 		var input string
 		fmt.Scanf("%v", &input)
-		this.socket.Write([]byte(input))
-	}*/
+
+		if strings.Contains(input, "register") {
+			split := strings.Split(input, ";")
+			message := []byte{byte(m.SM_LOGIN_REGISTER)}
+			this.parser.AppendStrings(&message, split[1:])
+			this.Write(message)
+		}
+	}
 }
 
 func (this *Connector) read() {

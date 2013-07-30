@@ -13,7 +13,7 @@ func (this *Parser) Init(connection *Connector) {
 	this.connection = connection
 }
 
-func (this *Parser) getStrings(paramCount int) []string {
+func (this *Parser) GetStrings(paramCount int) []string {
 	data := make([]string, paramCount)
 
 	var length [1]byte
@@ -27,20 +27,22 @@ func (this *Parser) getStrings(paramCount int) []string {
 	return data
 }
 
-func (this *Parser) appendStrings(message []byte, params []string) {
+func (this *Parser) AppendStrings(message *[]byte, params []string) {
 	for i := 0; i < len(params); i++ {
 		str := params[i]
 		if len(str) > 255 {
 			fmt.Println("CRITICAL : Tried to send a string message greater than 255 characters")
 			return
 		}
-		message = append(message, byte(len(str)))
-		message = append(message, []byte(str)...)
+		*message = append(*message, byte(len(str)))
+		*message = append(*message, []byte(str)...)
 	}
 }
 
 func (this *Parser) Message(mType m.ClientMessage) {
 	if mType == m.CM_LOGIN_REGISTER_SUCCESS {
-
+		fmt.Println("Registration Success")
+	} else if mType == m.CM_LOGIN_REGISTER_DUPLICATE {
+		fmt.Println("Registration Duplicate")
 	}
 }
