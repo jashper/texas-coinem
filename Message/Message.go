@@ -4,7 +4,7 @@ type ServerMessage byte
 
 const (
 	// Login messages
-	SM_LOGIN_REGISTER ServerMessage = iota
+	SM_LOGIN_REGISTER ServerMessage = iota //username, password string
 )
 
 type ClientMessage byte

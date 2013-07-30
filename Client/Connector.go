@@ -46,6 +46,7 @@ func (this *Connector) Write(message []byte) error {
 	return err
 }
 
+// only to be used by parser
 func (this *Connector) Read(message []byte) { //input slice must be initialized
 	this.socket.Read(message)
 }

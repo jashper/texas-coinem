@@ -3,7 +3,6 @@ package Server
 import (
 	"fmt"
 	m "github.com/jashper/texas-coinem/Message"
-	r "reflect"
 )
 
 type Parser struct {
@@ -16,44 +15,37 @@ func (this *Parser) Init(connection *Connection, context *ServerContext) {
 	this.context = context
 }
 
-func (this *Parser) getData(paramCount int) [][]byte {
-	data := make([][]byte, paramCount)
+func (this *Parser) getStrings(paramCount int) []string {
+	data := make([]string, paramCount)
 
 	var length [1]byte
 	for i := 0; i < paramCount; i++ {
 		this.connection.Read(length[:])
-		data[i] = make([]byte, int(length[0]))
-		this.connection.Read(data[i])
+		temp := make([]byte, int(length[0]))
+		this.connection.Read(temp)
+		data[i] = string(temp)
 	}
 
 	return data
 }
 
-func (this *Parser) sendMessage(mType m.ClientMessage, params []r.Value) {
-	message := make([]byte, 1)
-	message[0] = byte(mType)
+func (this *Parser) appendStrings(message []byte, params []string) {
 	for i := 0; i < len(params); i++ {
-		p := params[0]
-		if p.Kind() == r.String {
-			pStr := p.String()
-			message = append(message, byte(len(pStr)))
-			if len(pStr) > 255 {
-				fmt.Println("CRITICAL : Tried to send a string message greater than 255 characters")
-				return
-			}
-			message = append(message, []byte(pStr)...)
-		} else {
-			// TODO: other types
+		str := params[i]
+		if len(str) > 255 {
+			fmt.Println("CRITICAL : Tried to send a string message greater than 255 characters")
+			return
 		}
+		message = append(message, byte(len(str)))
+		message = append(message, []byte(str)...)
 	}
-	this.connection.Write(message)
 }
 
 func (this *Parser) Message(mType m.ServerMessage) {
 	if mType == m.SM_LOGIN_REGISTER {
-		data := this.getData(2)
-		username := string(data[0])
-		password := string(data[1])
+		data := this.getStrings(2)
+		username := data[0]
+		password := data[1]
 
 		err := RegisterUser(username, password, this.context)
 		var message m.ClientMessage
@@ -63,6 +55,7 @@ func (this *Parser) Message(mType m.ServerMessage) {
 			message = m.CM_LOGIN_REGISTER_FAILURE
 		}
 
-		this.sendMessage(message, []r.Value{})
+		toSend := []byte{byte(message)}
+		this.connection.Write(toSend)
 	}
 }
