@@ -2,7 +2,6 @@ package Server
 
 import (
 	"fmt"
-	m "github.com/jashper/texas-coinem/Message"
 	"net"
 )
 
@@ -40,7 +39,7 @@ func (this *Connection) run() {
 			return
 		}
 
-		this.parser.Message(m.ServerMessage(message[0]))
+		this.parser.Message(ServerMessage(message[0]))
 	}
 }
 
