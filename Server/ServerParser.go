@@ -2,6 +2,7 @@ package Server
 
 import (
 	"fmt"
+	m "github.com/jashper/texas-coinem/Message"
 )
 
 type Parser struct {
@@ -40,19 +41,19 @@ func (this *Parser) AppendStrings(message *[]byte, params []string) {
 	}
 }
 
-func (this *Parser) Message(mType ServerMessage) {
-	if mType == SM_LOGIN_REGISTER {
+func (this *Parser) Message(mType m.ServerMessage) {
+	if mType == m.SM_LOGIN_REGISTER {
 		data := this.GetStrings(2)
 		username := data[0]
 		password := data[1]
 
 		// TODO: check for legal user/pass format (ie: min # of characters)
 		err := RegisterUser(username, password, this.context)
-		var message ClientMessage
+		var message m.ClientMessage
 		if err == nil {
-			message = CM_LOGIN_REGISTER_SUCCESS
+			message = m.CM_LOGIN_REGISTER_SUCCESS
 		} else { // TODO: Differentiate between errors
-			message = CM_LOGIN_REGISTER_DUPLICATE
+			message = m.CM_LOGIN_REGISTER_DUPLICATE
 		}
 
 		toSend := []byte{byte(message)}

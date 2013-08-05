@@ -1,4 +1,4 @@
-package Server
+package Message
 
 type ServerMessage byte
 
